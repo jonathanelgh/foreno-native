@@ -1,22 +1,32 @@
 {
   "expo": {
-    "name": "foreno-native",
+    "name": "Föreno",
     "slug": "foreno-native",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "forenonative",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.foreno.native",
+      "buildNumber": "4",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Föreno behöver åtkomst till kameran för att ta bilder till utskick och profilbilder.",
+        "NSPhotoLibraryUsageDescription": "Föreno behöver åtkomst till ditt fotobibliotek för att välja bilder till utskick och profilbilder.",
+        "NSPhotoLibraryAddUsageDescription": "Föreno behöver tillgång för att spara bilder till ditt fotobibliotek.",
+        "NSUserNotificationsUsageDescription": "Föreno vill skicka notiser om nya utskick och kommande aktiviteter.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.foreno.native"
     },
     "web": {
       "bundler": "metro",
@@ -28,15 +38,32 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/images/foreno-icon.png",
+          "imageWidth": 120,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff",
+          "defaultChannel": "default"
+        }
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "cb65ddda-a319-49f8-ad26-26ff23aae1e8"
+      }
+    },
+    "owner": "jonathanelgh"
   }
 }
