@@ -18,6 +18,10 @@ export const getUtskickFeed = async (
         question,
         options,
         expires_at
+      ),
+      author:published_by (
+        first_name,
+        last_name
       )
     `)
     .eq("organization_id", organizationId)

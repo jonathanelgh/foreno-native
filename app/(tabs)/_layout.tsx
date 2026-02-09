@@ -7,9 +7,11 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useUnreadCountOptional } from '@/contexts/UnreadCountContext';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { totalUnread } = useUnreadCountOptional();
 
   return (
     <Tabs
@@ -30,42 +32,50 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          href: null,
+          title: 'Startsida',
+          tabBarIcon: ({ color }) => <IconSymbol size={22} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="news"
         options={{
-          title: 'Utskick',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="newspaper.fill" color={color} />,
+          title: 'Information',
+          tabBarIcon: ({ color }) => <IconSymbol size={22} name="newspaper.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="events"
         options={{
-          title: 'Kalender',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="contacts"
         options={{
-          title: 'Kontakter',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.2.fill" color={color} />,
+          href: null, // Hide from tab bar
+          tabBarStyle: { display: 'none' }, // Hide tab bar on this screen
+        }}
+      />
+      <Tabs.Screen
+        name="messages"
+        options={{
+          title: 'Meddelanden',
+          tabBarIcon: ({ color }) => <IconSymbol size={22} name="paperplane.fill" color={color} />,
+          tabBarBadge: totalUnread > 0 ? (totalUnread > 99 ? '99+' : totalUnread) : undefined,
         }}
       />
       <Tabs.Screen
         name="documents"
         options={{
           title: 'Dokument',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="folder.fill" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={22} name="folder.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profil',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={22} name="person.fill" color={color} />,
         }}
       />
     </Tabs>

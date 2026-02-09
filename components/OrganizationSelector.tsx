@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
     Modal,
@@ -35,12 +35,12 @@ export function OrganizationSelector({ textColor = '#1f2937', iconColor = '#6b72
         onPress={() => setModalVisible(true)}
       >
         <View style={styles.iconContainer}>
-          <Ionicons name="business" size={16} color="#2563eb" />
+          <Feather name="briefcase" size={14} color="#2563eb" />
         </View>
         <Text style={[styles.organizationName, { color: textColor }]} numberOfLines={1}>
           {activeOrganization.name}
         </Text>
-        <Ionicons name="chevron-down" size={16} color={iconColor} />
+        <Feather name="chevron-down" size={14} color={iconColor} />
       </TouchableOpacity>
 
       <Modal
@@ -56,7 +56,7 @@ export function OrganizationSelector({ textColor = '#1f2937', iconColor = '#6b72
               style={styles.closeButton}
               onPress={() => setModalVisible(false)}
             >
-              <Ionicons name="close" size={24} color="#374151" />
+              <Feather name="x" size={24} color="#374151" />
             </TouchableOpacity>
           </View>
 
@@ -83,7 +83,7 @@ export function OrganizationSelector({ textColor = '#1f2937', iconColor = '#6b72
                   </Text>
                 </View>
                 {activeOrganization.id === membership.organization_id && (
-                  <Ionicons name="checkmark" size={20} color="#10b981" />
+                  <Feather name="check" size={18} color="#10b981" />
                 )}
               </TouchableOpacity>
             ))}
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   organizationName: {
     fontSize: 15,
     fontWeight: '600',
-    marginRight: 8,
+    marginRight: 10,
     flex: 1,
   },
   modalContainer: {

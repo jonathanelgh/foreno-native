@@ -84,7 +84,7 @@ export default function NewsScreen() {
       return (
         <View style={styles.stateContainer}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={styles.stateText}>Laddar utskick...</Text>
+          <Text style={styles.stateText}>Laddar information...</Text>
         </View>
       );
     }
@@ -94,7 +94,7 @@ export default function NewsScreen() {
         <View style={styles.stateContainer}>
           <Text style={styles.stateTitle}>Ingen organisation vald</Text>
           <Text style={styles.stateDescription}>
-            Välj en organisation för att se aktuella utskick.
+            Välj en organisation för att se aktuell information.
           </Text>
         </View>
       );
@@ -117,7 +117,7 @@ export default function NewsScreen() {
         onEndReachedThreshold={0.1}
         ListEmptyComponent={
           <View style={styles.stateContainer}>
-            <Text style={styles.stateTitle}>Inga utskick att visa</Text>
+            <Text style={styles.stateTitle}>Ingen information att visa</Text>
             <Text style={styles.stateDescription}>
               Dra nedåt för att uppdatera.
             </Text>
@@ -137,7 +137,7 @@ export default function NewsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.headerContainer}>
         <View style={styles.headerTitles}>
-          <Text style={styles.headerTitle}>Utskick</Text>
+          <Text style={styles.headerTitle}>Information</Text>
           {activeOrganization && (
             <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
           )}

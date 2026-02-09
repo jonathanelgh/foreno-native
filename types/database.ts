@@ -960,4 +960,57 @@ export type MeetingDetails = {
   notes: MeetingNotes | null
   attendance: AttendanceWithProfile[]
   roles: MeetingRole[]
+}
+
+// Messaging (migrated from web foreno)
+export type Conversation = {
+  id: string
+  participant1_id: string
+  participant2_id: string
+  last_message: string | null
+  last_message_at: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export type Message = {
+  id: string
+  conversation_id: string
+  sender_id: string
+  content: string
+  created_at: string | null
+  updated_at: string | null
+  image_bucket: string | null
+  image_path: string | null
+  image_file_name: string | null
+}
+
+export type OrganizationConversation = {
+  id: string
+  organization_id: string
+  type: string
+  name: string
+  last_message: string | null
+  last_message_at: string | null
+  created_at: string | null
+  updated_at: string | null
+  created_by: string | null
+}
+
+export type OrganizationMessage = {
+  id: string
+  organization_conversation_id: string
+  sender_id: string
+  content: string
+  created_at: string | null
+  image_bucket: string | null
+  image_path: string | null
+  image_file_name: string | null
+}
+
+export type ConversationReadState = {
+  user_id: string
+  conversation_type: string
+  conversation_id: string
+  last_read_at: string
 } 

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
@@ -112,11 +112,11 @@ export const PollComponent: React.FC<PollComponentProps> = ({ poll }) => {
               ]}
               onPress={() => handleOptionSelect(option)}
             >
-              <Ionicons
+              <Feather
                 name={
                   selectedOptions.includes(option)
-                    ? 'radio-button-on'
-                    : 'radio-button-off'
+                    ? 'check-circle'
+                    : 'circle'
                 }
                 size={24}
                 color={

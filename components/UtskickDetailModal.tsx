@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
 import {
@@ -66,9 +66,9 @@ export function UtskickDetailModal({ visible, utskick, onClose }: UtskickDetailM
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Utskick</Text>
+          <Text style={styles.headerTitle}>Information</Text>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={24} color="#374151" />
+            <Feather name="x" size={24} color="#374151" />
           </TouchableOpacity>
         </View>
 
@@ -78,7 +78,7 @@ export function UtskickDetailModal({ visible, utskick, onClose }: UtskickDetailM
           
           {/* Date */}
           <View style={styles.dateContainer}>
-            <Ionicons name="time-outline" size={16} color="#6b7280" />
+            <Feather name="clock" size={16} color="#6b7280" />
             <Text style={styles.date}>
               {formatDate(utskick.published_at || utskick.created_at)}
             </Text>
@@ -111,7 +111,7 @@ export function UtskickDetailModal({ visible, utskick, onClose }: UtskickDetailM
               onPress={handleFileDownload}
             >
               <View style={styles.attachmentIcon}>
-                <Ionicons name="document" size={24} color="#2563eb" />
+                <Feather name="file-text" size={24} color="#2563eb" />
               </View>
               <View style={styles.attachmentInfo}>
                 <Text style={styles.attachmentTitle}>
@@ -119,7 +119,7 @@ export function UtskickDetailModal({ visible, utskick, onClose }: UtskickDetailM
                 </Text>
                 <Text style={styles.attachmentSubtitle}>Tryck för att öppna</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              <Feather name="chevron-right" size={20} color="#9ca3af" />
             </TouchableOpacity>
           )}
         </ScrollView>

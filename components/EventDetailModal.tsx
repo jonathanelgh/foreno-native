@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -206,8 +206,8 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
   const getTabIcon = (tab: TabType) => {
     switch (tab) {
       case 'agenda': return 'list';
-      case 'documents': return 'document-text';
-      case 'notes': return 'create';
+      case 'documents': return 'file-text';
+      case 'notes': return 'edit';
     }
   };
 
@@ -241,7 +241,7 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
     if (!meetingDetails) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="information-circle" size={48} color="#9ca3af" />
+          <Feather name="info" size={48} color="#9ca3af" />
           <Text style={styles.emptyText}>Inga mötesdetaljer tillgängliga</Text>
         </View>
       );
@@ -263,7 +263,7 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
                         <Text style={styles.agendaTitle}>{item.title}</Text>
                         {item.duration_minutes && (
                           <View style={styles.durationBadge}>
-                            <Ionicons name="time" size={12} color="#6b7280" />
+                            <Feather name="clock" size={12} color="#6b7280" />
                             <Text style={styles.durationText}>{item.duration_minutes}min</Text>
                           </View>
                         )}
@@ -273,7 +273,7 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
                       )}
                       {item.is_completed && (
                         <View style={styles.completedBadge}>
-                          <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                          <Feather name="check-circle" size={16} color="#10b981" />
                           <Text style={styles.completedText}>Genomförd</Text>
                         </View>
                       )}
@@ -283,7 +283,7 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
               ))
             ) : (
               <View style={styles.emptyTabContent}>
-                <Ionicons name="list" size={48} color="#9ca3af" />
+                <Feather name="list" size={48} color="#9ca3af" />
                 <Text style={styles.emptyTabText}>Ingen dagordning tillgänglig</Text>
                 <Text style={styles.emptyTabSubtext}>Dagordningspunkter kommer att visas här</Text>
               </View>
@@ -302,7 +302,7 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
                   onPress={() => handleDocumentPress(doc.documents?.file_url)}
                 >
                   <View style={styles.documentIcon}>
-                    <Ionicons name="document-text" size={24} color="#2563eb" />
+                    <Feather name="file-text" size={24} color="#2563eb" />
                   </View>
                   <View style={styles.documentContent}>
                     <Text style={styles.documentTitle}>
@@ -327,12 +327,12 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
                       )}
                     </View>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+                  <Feather name="chevron-right" size={20} color="#9ca3af" />
                 </TouchableOpacity>
               ))
             ) : (
               <View style={styles.emptyTabContent}>
-                <Ionicons name="document-text" size={48} color="#9ca3af" />
+                <Feather name="file-text" size={48} color="#9ca3af" />
                 <Text style={styles.emptyTabText}>Inga dokument tillgängliga</Text>
                 <Text style={styles.emptyTabSubtext}>Dokument kommer att visas här när de läggs till</Text>
               </View>
@@ -349,7 +349,7 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
               </View>
             ) : (
               <View style={styles.emptyTabContent}>
-                <Ionicons name="create" size={48} color="#9ca3af" />
+                <Feather name="edit" size={48} color="#9ca3af" />
                 <Text style={styles.emptyTabText}>Inga anteckningar tillgängliga</Text>
                 <Text style={styles.emptyTabSubtext}>Mötesanteckningar kommer att visas här</Text>
               </View>
@@ -374,7 +374,7 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
             <Text style={styles.headerTitle}>Aktivitet</Text>
           </View>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={24} color="#374151" />
+            <Feather name="x" size={24} color="#374151" />
           </TouchableOpacity>
         </View>
 
@@ -387,12 +387,12 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
             ]}>
               {event.event_type === 'meeting' ? (
                 <>
-                  <Ionicons name="people" size={14} color="#3b82f6" />
+                  <Feather name="users" size={14} color="#3b82f6" />
                   <Text style={[styles.eventTypeBadgeText, styles.meetingBadgeText]}>Möte</Text>
                 </>
               ) : (
                 <>
-                  <Ionicons name="calendar" size={14} color="#16a34a" />
+                  <Feather name="calendar" size={14} color="#16a34a" />
                   <Text style={[styles.eventTypeBadgeText, styles.activityBadgeText]}>Aktivitet</Text>
                 </>
               )}
@@ -406,7 +406,7 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
           <View style={styles.infoSection}>
             <View style={styles.infoRow}>
               <View style={styles.iconContainer}>
-                <Ionicons name="calendar" size={20} color="#6b7280" />
+                <Feather name="calendar" size={18} color="#6b7280" />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Datum</Text>
@@ -419,7 +419,7 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
             {(event.start_time || event.end_time) && (
               <View style={styles.infoRow}>
                 <View style={styles.iconContainer}>
-                  <Ionicons name="time" size={20} color="#6b7280" />
+                  <Feather name="clock" size={18} color="#6b7280" />
                 </View>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>Tid</Text>
@@ -435,7 +435,7 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
             {event.location && (
               <View style={styles.infoRow}>
                 <View style={styles.iconContainer}>
-                  <Ionicons name="location" size={20} color="#6b7280" />
+                  <Feather name="map-pin" size={18} color="#6b7280" />
                 </View>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>Plats</Text>
@@ -457,13 +457,13 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
           <TouchableOpacity style={styles.addToCalendarButton} onPress={addToGoogleCalendar}>
             <View style={styles.addToCalendarContent}>
               <View style={styles.calendarIconContainer}>
-                <Ionicons name="calendar-outline" size={22} color="#2563eb" />
+                <Feather name="calendar" size={22} color="#2563eb" />
               </View>
               <View style={styles.addToCalendarText}>
                 <Text style={styles.addToCalendarTitle}>Lägg till i Google Kalender</Text>
                 <Text style={styles.addToCalendarSubtitle}>Öppnas i Google Kalender</Text>
               </View>
-              <Ionicons name="add-circle" size={24} color="#2563eb" />
+              <Feather name="plus-circle" size={24} color="#2563eb" />
             </View>
           </TouchableOpacity>
 
@@ -485,7 +485,7 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
                     ]}
                     onPress={() => setActiveTab(tab)}
                   >
-                    <Ionicons 
+                    <Feather 
                       name={getTabIcon(tab)} 
                       size={16} 
                       color={activeTab === tab ? '#2563eb' : '#6b7280'} 
@@ -526,7 +526,7 @@ export function EventDetailModal({ visible, event, onClose }: EventDetailModalPr
           {/* Past event indicator */}
           {isPastEvent(event.event_date) && (
             <View style={styles.pastEventBanner}>
-              <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+              <Feather name="check-circle" size={16} color="#10b981" />
               <Text style={styles.pastEventBannerText}>Denna aktivitet har genomförts</Text>
             </View>
           )}

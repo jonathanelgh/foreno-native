@@ -293,6 +293,54 @@ The enhanced system handles all possible permission states:
 4. **Edge function sends to Expo** → Updates notification status
 5. **User receives notification** → Can tap to navigate to content
 
+## Message push notifications (new messages)
+
+New messages (direct and group) trigger push notifications from the database:
+
+1. **SQL**: Run `supabase-message-push-notifications.sql` in Supabase → SQL Editor.
+2. **Prerequisites**: Enable the **pg_net** extension (Database → Extensions). Ensure `user_profiles` has `expo_push_token` and optionally `push_notifications`.
+3. **Config**: After running the SQL, update the edge function URL:  
+   `UPDATE app_settings SET value = 'https://YOUR_PROJECT_REF.supabase.co/functions/v1' WHERE key = 'supabase_functions_url';`
+4. **Edge function**: Use your existing **`send-push-notification`** function. The message flow POSTs to it with body:  
+   `{ "expo_push_token": "...", "title": "Sender name", "body": "Message preview", "data": { "type": "message", "conversation_id": "...", "conversation_type": "direct"|"organization" } }`  
+   If the request body contains **`expo_push_token`**, forward it to the Expo Push API (POST to `https://exp.host/--/api/v2/push/send` with `{ to: expo_push_token, title, body, data }`). If your function already handles other payloads (e.g. utskick/events from `push_notifications`), add this branch so one function handles both.
+5. **Tap behaviour**: Tapping a message notification opens the conversation screen (handled in `lib/notifications.ts`).
+
+---
+
+## Option: Database Webhook instead of pg_net
+
+You can trigger the Edge Function from **Database Webhooks** instead of pg_net. That avoids the pg_net extension and `message_push_queue` / `app_settings` setup.
+
+### Why use a webhook?
+
+- No **pg_net** or trigger that calls HTTP from the DB.
+- Configure in Dashboard (Database → Webhooks): enable/disable or change URL without SQL.
+- Supabase sends the new row to your Edge Function; the function does recipient lookup + Expo send.
+
+### Setup (messages push via webhook)
+
+1. **Create an Edge Function** that:
+   - Accepts POST with Supabase webhook payload: `{ "type": "INSERT", "table": "messages", "record": { "id", "conversation_id", "sender_id", "content", ... } }` (and similarly for `organization_messages`).
+   - For **messages**: get the other participant from `conversations` (where `id = record.conversation_id`), fetch their `expo_push_token` from `user_profiles`, build title/body/data, then POST to `https://exp.host/--/api/v2/push/send`.
+   - For **organization_messages**: get member user_ids from `organization_conversation_members` (excluding `record.sender_id`), fetch their tokens, send one push per recipient.
+   - Respect `user_profiles.push_notifications` (skip if false).
+
+2. **Add Database Webhooks** (Supabase Dashboard → Database → Webhooks → Create):
+   - **Table**: `messages` → **Events**: Insert → **URL**: `https://YOUR_PROJECT_REF.supabase.co/functions/v1/send-message-push` (or your function name).
+   - Repeat for **Table**: `organization_messages` if you want group message pushes.
+
+3. **Payload shape**: The webhook sends a JSON body like:
+   ```json
+   { "type": "INSERT", "table": "messages", "record": { "id": "...", "conversation_id": "...", "sender_id": "...", "content": "..." }, "old_record": null }
+   ```
+   Your Edge Function reads `record`, looks up recipient(s) and tokens, then calls Expo.
+
+### Recommendation
+
+- **Webhook**: Simpler DB (no pg_net, no queue table), all “who gets notified” logic in one place (Edge Function). Good default.
+- **pg_net + queue**: Keeps recipient/token resolution in SQL and uses the Edge Function only to call Expo; useful if you want a DB audit trail (`message_push_queue`) or already have that setup.
+
 ## Troubleshooting
 
 ### Check Push Notification Status

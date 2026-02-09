@@ -1,4 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -101,7 +102,7 @@ export default function ContactsScreen() {
         <View style={styles.contactHeader}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={24} color="#6b7280" />
+              <Feather name="user" size={20} color="#6b7280" />
             </View>
           </View>
           <View style={styles.contactInfo}>
@@ -119,7 +120,7 @@ export default function ContactsScreen() {
                 style={styles.actionButton}
                 onPress={() => handleEmail(email)}
               >
-                <Ionicons name="mail" size={20} color="#3b82f6" />
+                <Feather name="mail" size={18} color="#3b82f6" />
                 <Text style={styles.actionText}>{email}</Text>
               </TouchableOpacity>
             )}
@@ -128,7 +129,7 @@ export default function ContactsScreen() {
                 style={styles.actionButton}
                 onPress={() => handleCall(phone)}
               >
-                <Ionicons name="call" size={20} color="#10b981" />
+                <Feather name="phone" size={18} color="#10b981" />
                 <Text style={styles.actionText}>{phone}</Text>
               </TouchableOpacity>
             )}
@@ -151,7 +152,7 @@ export default function ContactsScreen() {
     if (!activeOrganization) {
       return (
         <View style={styles.stateContainer}>
-          <Ionicons name="business-outline" size={56} color="#9ca3af" />
+          <Feather name="briefcase" size={56} color="#9ca3af" />
           <Text style={styles.stateTitle}>Ingen organisation vald</Text>
           <Text style={styles.stateDescription}>
             Du måste vara medlem i en organisation för att se kontakter.
@@ -163,7 +164,7 @@ export default function ContactsScreen() {
     if (contacts.length === 0) {
       return (
         <View style={styles.stateContainer}>
-          <Ionicons name="people-outline" size={56} color="#9ca3af" />
+          <Feather name="users" size={56} color="#9ca3af" />
           <Text style={styles.stateTitle}>Inga kontakter</Text>
           <Text style={styles.stateDescription}>
             Det finns inga kontakter registrerade för denna organisation än.
@@ -187,13 +188,21 @@ export default function ContactsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <View style={styles.headerTitles}>
-          <Text style={styles.headerTitle}>Kontakter</Text>
-          {activeOrganization && (
-            <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
-          )}
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.push('/(tabs)/profile')}
+          >
+            <Feather name="arrow-left" size={20} color="#2563eb" />
+          </TouchableOpacity>
+          <View style={styles.headerTitles}>
+            <Text style={styles.headerTitle}>Kontakter</Text>
+            {activeOrganization && (
+              <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
+            )}
+          </View>
         </View>
         {activeOrganization && isAdmin && (
           <TouchableOpacity
@@ -233,6 +242,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backButton: {
+    marginRight: 12,
+    padding: 4,
   },
   headerTitles: {
     flex: 1,
@@ -309,7 +327,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   avatarContainer: {
-    marginRight: 12,
+    marginRight: 16,
   },
 
   avatarPlaceholder: {
@@ -351,6 +369,6 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 16,
     color: '#374151',
-    marginLeft: 8,
+    marginLeft: 12,
   },
 }); 

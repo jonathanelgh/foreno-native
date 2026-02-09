@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import {
@@ -8,7 +8,9 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    StyleProp,
+    ViewStyle
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { getPollResults, hasUserVoted, submitPollVote } from '../lib/api/polls';
@@ -16,9 +18,10 @@ import { getPollResults, hasUserVoted, submitPollVote } from '../lib/api/polls';
 interface UtskickCardProps {
   utskick: any;
   onPress?: () => void;
+  style?: StyleProp<ViewStyle>;
 }
 
-export const UtskickCard: React.FC<UtskickCardProps> = ({ utskick, onPress }) => {
+export const UtskickCard: React.FC<UtskickCardProps> = ({ utskick, onPress, style }) => {
   const { user, memberships, activeOrganization } = useAuth();
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [hasVoted, setHasVoted] = useState(false);
@@ -162,7 +165,7 @@ export const UtskickCard: React.FC<UtskickCardProps> = ({ utskick, onPress }) =>
 
   return (
     <TouchableOpacity 
-      style={styles.card} 
+      style={[styles.card, style]} 
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -197,7 +200,7 @@ export const UtskickCard: React.FC<UtskickCardProps> = ({ utskick, onPress }) =>
           style={styles.attachment}
           onPress={handleFileDownload}
         >
-          <Ionicons name="document" size={20} color="#2563eb" />
+          <Feather name="file-text" size={18} color="#2563eb" />
           <Text style={styles.attachmentText}>
             📎 {utskick.file_name || 'Bifogad fil'}
           </Text>
@@ -220,16 +223,10 @@ export const UtskickCard: React.FC<UtskickCardProps> = ({ utskick, onPress }) =>
                   ]}
                   onPress={() => setSelectedOption(option)}
                 >
-                  <Ionicons
-                    name={
-                      selectedOption === option
-                        ? 'radio-button-on'
-                        : 'radio-button-off'
-                    }
+                  <Feather
+                    name={selectedOption === option ? 'check-circle' : 'circle'}
                     size={24}
-                    color={
-                      selectedOption === option ? '#2563eb' : '#6b7280'
-                    }
+                    color={selectedOption === option ? '#2563eb' : '#6b7280'}
                   />
                   <Text style={styles.pollOptionText}>{option}</Text>
                 </TouchableOpacity>
@@ -350,7 +347,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   attachmentText: {
-    marginLeft: 8,
+    marginLeft: 12,
     fontSize: 16,
     color: '#2563eb',
     fontWeight: '500',

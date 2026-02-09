@@ -1,5 +1,23 @@
-import { SymbolView, SymbolViewProps, SymbolWeight } from 'expo-symbols';
-import { StyleProp, ViewStyle } from 'react-native';
+// Using Feather icons on iOS for consistency with other platforms
+import Feather from '@expo/vector-icons/Feather';
+import { SymbolViewProps, SymbolWeight } from 'expo-symbols';
+import { ComponentProps } from 'react';
+import { StyleProp, TextStyle } from 'react-native';
+
+type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof Feather>['name']>;
+type IconSymbolName = keyof typeof MAPPING;
+
+const MAPPING = {
+  'house.fill': 'home',
+  'paperplane.fill': 'send',
+  'chevron.left.forwardslash.chevron.right': 'code',
+  'chevron.right': 'chevron-right',
+  'newspaper.fill': 'file-text',
+  'calendar': 'calendar',
+  'person.2.fill': 'users',
+  'folder.fill': 'folder',
+  'person.fill': 'user',
+} as IconMapping;
 
 export function IconSymbol({
   name,
@@ -8,25 +26,11 @@ export function IconSymbol({
   style,
   weight = 'regular',
 }: {
-  name: SymbolViewProps['name'];
+  name: IconSymbolName;
   size?: number;
   color: string;
-  style?: StyleProp<ViewStyle>;
+  style?: StyleProp<TextStyle>;
   weight?: SymbolWeight;
 }) {
-  return (
-    <SymbolView
-      weight={weight}
-      tintColor={color}
-      resizeMode="scaleAspectFit"
-      name={name}
-      style={[
-        {
-          width: size,
-          height: size,
-        },
-        style,
-      ]}
-    />
-  );
+  return <Feather color={color} size={size} name={MAPPING[name]} style={style} />;
 }

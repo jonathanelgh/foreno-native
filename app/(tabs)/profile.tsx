@@ -1,18 +1,22 @@
-import { Image } from 'expo-image';
+import { Avatar } from '../../components/Avatar';
+import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Linking,
     Modal,
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 export default function ProfileScreen() {
   const {
@@ -26,6 +30,7 @@ export default function ProfileScreen() {
   
   const [showOrgModal, setShowOrgModal] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [pushNotifications, setPushNotifications] = useState(true);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -95,19 +100,13 @@ export default function ProfileScreen() {
       >
         <View style={styles.header}>
           <View style={styles.profileImageContainer}>
-          {userProfile?.profile_image_url ? (
-            <Image
-              source={{ uri: userProfile.profile_image_url }}
+            <Avatar 
+              url={userProfile?.profile_image_url} 
+              size={80} 
               style={styles.profileImage}
-              contentFit="cover"
+              name={getUserDisplayName()}
+              placeholderColor="#2563eb"
             />
-          ) : (
-            <View style={styles.profileImagePlaceholder}>
-              <Text style={styles.profileImageText}>
-                {getUserDisplayName().charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
         </View>
         
         <Text style={styles.userName}>{getUserDisplayName()}</Text>
@@ -115,7 +114,6 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Aktiv förening</Text>
         <TouchableOpacity
           style={styles.organizationCard}
           onPress={() => setShowOrgModal(true)}
@@ -136,12 +134,166 @@ export default function ProfileScreen() {
             <Text style={styles.organizationChevron}>›</Text>
           )}
         </TouchableOpacity>
+
+        {/* Menu Items */}
+        <Text style={styles.menuTitle}>Meny</Text>
+        <View style={styles.menuGrid}>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/(tabs)/contacts')}
+          >
+            <View style={styles.menuItemContainer}>
+              <Feather name="users" size={22} color="#2563eb" />
+              <Text style={styles.menuItemText}>Kontakter</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => Alert.alert('Info', 'Medlemmar kommer snart')}
+          >
+            <View style={styles.menuItemContainer}>
+              <Feather name="user" size={22} color="#2563eb" />
+              <Text style={styles.menuItemText}>Medlemmar</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/(tabs)/events')}
+          >
+            <View style={styles.menuItemContainer}>
+              <Feather name="calendar" size={22} color="#2563eb" />
+              <View style={styles.menuItemTextContainer}>
+                <Text style={styles.menuItemText}>Kalender</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/bookings')}
+          >
+            <View style={styles.menuItemContainer}>
+              <Feather name="calendar" size={22} color="#2563eb" />
+              <View style={styles.menuItemTextContainer}>
+                <Text style={styles.menuItemText}>Bokning</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/marketplace')}
+          >
+            <View style={styles.menuItemContainer}>
+              <Feather name="shopping-bag" size={22} color="#2563eb" />
+              <View style={styles.menuItemTextContainer}>
+                <Text style={styles.menuItemText}>Köp & sälj</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/fees')}
+          >
+            <View style={styles.menuItemContainer}>
+              <Feather name="credit-card" size={22} color="#2563eb" />
+              <Text style={styles.menuItemText}>Betalningar</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => Alert.alert('Info', 'Felanmälan kommer snart')}
+          >
+            <View style={styles.menuItemContainer}>
+              <Feather name="alert-triangle" size={22} color="#2563eb" />
+              <View style={styles.menuItemTextContainer}>
+                <Text style={styles.menuItemText}>Felanmälan</Text>
+                <Text style={styles.menuItemComingSoon}>(kommer snart)</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Settings Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Inställningar</Text>
         
-        {memberships.length > 1 && (
-          <Text style={styles.organizationSubtext}>
-            Tryck för att byta organisation ({memberships.length} tillgängliga)
-          </Text>
-        )}
+        <TouchableOpacity 
+          style={styles.settingItem}
+          onPress={async () => {
+            if (!user?.email) return;
+            try {
+              await supabase.auth.resetPasswordForEmail(user.email, {
+                redirectTo: 'foreno://reset-password',
+              });
+              Alert.alert('Info', 'Ett e-postmeddelande för återställning av lösenord har skickats.');
+            } catch (error) {
+              Alert.alert('Fel', 'Kunde inte skicka återställningslänk.');
+            }
+          }}
+        >
+          <View style={styles.settingItemLeft}>
+            <Feather name="lock" size={20} color="#1f2937" />
+            <Text style={styles.settingItemText}>Byt lösenord</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color="#9ca3af" />
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.settingItem}
+          onPress={() => Alert.alert('Info', 'Support kommer snart')}
+        >
+          <View style={styles.settingItemLeft}>
+            <Feather name="help-circle" size={20} color="#1f2937" />
+            <Text style={styles.settingItemText}>Support</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color="#9ca3af" />
+        </TouchableOpacity>
+
+        <View style={styles.settingItem}>
+          <View style={styles.settingItemLeft}>
+            <Feather name="bell" size={20} color="#1f2937" />
+            <Text style={styles.settingItemText}>Pushnotiser</Text>
+          </View>
+          <Switch
+            value={pushNotifications}
+            onValueChange={setPushNotifications}
+            trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+            thumbColor={pushNotifications ? '#2563eb' : '#f3f4f6'}
+          />
+        </View>
+      </View>
+
+      {/* About Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Om Föreno</Text>
+        
+        <TouchableOpacity 
+          style={styles.settingItem}
+          onPress={() => Linking.openURL('https://www.foreno.se/terms')}
+        >
+          <View style={styles.settingItemLeft}>
+            <Feather name="file-text" size={20} color="#1f2937" />
+            <Text style={styles.settingItemText}>Allmänna villkor</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color="#9ca3af" />
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.settingItem}
+          onPress={() => Linking.openURL('https://www.foreno.se/privacy')}
+        >
+          <View style={styles.settingItemLeft}>
+            <Feather name="shield" size={20} color="#1f2937" />
+            <Text style={styles.settingItemText}>Sekretess</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color="#9ca3af" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
@@ -303,6 +455,75 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 8,
     textAlign: 'center',
+  },
+  menuTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  menuGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -6,
+  },
+  menuItem: {
+    width: '50%',
+    padding: 6,
+    marginBottom: 12,
+  },
+  menuItemContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  menuItemTextContainer: {
+    flex: 1,
+  },
+  menuItemText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginLeft: 12,
+  },
+  menuItemComingSoon: {
+    fontSize: 11,
+    color: '#9ca3af',
+    marginLeft: 12,
+    marginTop: 2,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  settingItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1f2937',
+    marginLeft: 12,
   },
   signOutButton: {
     backgroundColor: 'transparent',

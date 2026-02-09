@@ -1,7 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Avatar } from './Avatar';
+import { Feather } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Modal,
@@ -15,12 +17,33 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
+import { 
+  getOrganizationGroups, 
+  getOrganizationMembersForNewConversation, 
+  type OrgMemberForPicker 
+} from '../lib/api/messages';
 import { supabase } from '../lib/supabase';
+import { OrganizationConversation } from '../types/database';
 
 interface CreateEventSheetProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: () => void;
+}
+
+type VisibilityMode = 'public' | 'board' | 'groups' | 'members';
+
+function displayName(m: OrgMemberForPicker): string {
+  const first = m.first_name?.trim() || '';
+  const last = m.last_name?.trim() || '';
+  return [first, last].filter(Boolean).join(' ') || 'Okänd';
+}
+
+function matchesSearch(m: OrgMemberForPicker, query: string): boolean {
+  if (!query.trim()) return true;
+  const q = query.trim().toLowerCase();
+  const name = displayName(m).toLowerCase();
+  return name.includes(q);
 }
 
 export function CreateEventSheet({ visible, onClose, onSuccess }: CreateEventSheetProps) {
@@ -35,22 +58,87 @@ export function CreateEventSheet({ visible, onClose, onSuccess }: CreateEventShe
   const [startTime, setStartTime] = useState(new Date());
   const [endTime, setEndTime] = useState(new Date(Date.now() + 2 * 60 * 60 * 1000)); // 2 hours later
   const [eventType, setEventType] = useState<'regular' | 'meeting'>('regular');
-  const [mandatoryFor, setMandatoryFor] = useState('');
+  
+  // Visibility State
+  const [visibilityMode, setVisibilityMode] = useState<VisibilityMode>('public');
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  
+  // Data for pickers
+  const [groups, setGroups] = useState<OrganizationConversation[]>([]);
+  const [members, setMembers] = useState<OrgMemberForPicker[]>([]);
+  const [loadingData, setLoadingData] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
   
   // Notification options
   const [sendEmailNotification, setSendEmailNotification] = useState(true);
-  const [sendSmsNotification, setSendSmsNotification] = useState(false);
   
   // Date picker states
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
+  // Load groups and members when needed
+  const loadData = useCallback(async () => {
+    if (!activeOrganization?.id) return;
+    setLoadingData(true);
+    try {
+      const [g, m] = await Promise.all([
+        getOrganizationGroups(activeOrganization.id),
+        getOrganizationMembersForNewConversation(activeOrganization.id)
+      ]);
+      setGroups(g);
+      setMembers(m);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingData(false);
+    }
+  }, [activeOrganization?.id]);
+
+  useEffect(() => {
+    if (visible && activeOrganization?.id) {
+      loadData();
+    }
+  }, [visible, activeOrganization?.id, loadData]);
+
+  const filteredMembers = useMemo(() => {
+    return members.filter(m => matchesSearch(m, memberSearchQuery));
+  }, [members, memberSearchQuery]);
+
+  const toggleGroup = (id: string) => {
+    setSelectedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleMember = (id: string) => {
+    setSelectedMembers(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const handleCreate = async () => {
     if (!activeOrganization || !user) return;
 
     if (!title.trim()) {
       Alert.alert('Fel', 'Titel är obligatorisk');
+      return;
+    }
+
+    // Check visibility selections
+    if (visibilityMode === 'groups' && selectedGroups.size === 0) {
+      Alert.alert('Fel', 'Välj minst en grupp');
+      return;
+    }
+    if (visibilityMode === 'members' && selectedMembers.size === 0) {
+      Alert.alert('Fel', 'Välj minst en medlem');
       return;
     }
 
@@ -61,10 +149,19 @@ export function CreateEventSheet({ visible, onClose, onSuccess }: CreateEventShe
       const startTimeStr = startTime.toTimeString().split(' ')[0];
       const endTimeStr = endTime.toTimeString().split(' ')[0];
       
-      // Parse mandatory_for into array
-      const mandatoryArray = mandatoryFor.trim() 
-        ? mandatoryFor.split(',').map(item => item.trim()).filter(item => item.length > 0)
-        : [];
+      // Determine visible_to array
+      // 'medlem' = public (all members)
+      // 'styrelse' = board & admin
+      // For groups/members, we currently map to these string tags or pass IDs if backend supports it.
+      // Based on CreateUtskickSheet logic, we prepare the array but backend might only support limited tags yet.
+      
+      /* 
+      let visibleToArray: string[] = [];
+      if (visibilityMode === 'public') visibleToArray = ['medlem'];
+      else if (visibilityMode === 'board') visibleToArray = ['styrelse', 'admin'];
+      else if (visibilityMode === 'groups') visibleToArray = Array.from(selectedGroups).map(id => `group:${id}`);
+      else if (visibilityMode === 'members') visibleToArray = Array.from(selectedMembers).map(id => `user:${id}`);
+      */
 
       const eventData = {
         organization_id: activeOrganization.id,
@@ -75,10 +172,12 @@ export function CreateEventSheet({ visible, onClose, onSuccess }: CreateEventShe
         start_time: startTimeStr,
         end_time: endTimeStr,
         event_type: eventType,
-        mandatory_for: mandatoryArray.length > 0 ? mandatoryArray : null,
+        mandatory_for: null, // Removed field
         created_by: user.id,
         notify_via_email: sendEmailNotification,
-        notify_via_sms: sendSmsNotification,
+        notify_via_sms: false, // Disabled
+        // TODO: Pass visibility settings to backend once supported by events table
+        // visible_to: visibleToArray
       };
 
       const { error } = await supabase
@@ -114,9 +213,11 @@ export function CreateEventSheet({ visible, onClose, onSuccess }: CreateEventShe
     setStartTime(new Date());
     setEndTime(new Date(Date.now() + 2 * 60 * 60 * 1000));
     setEventType('regular');
-    setMandatoryFor('');
+    setVisibilityMode('public');
+    setSelectedGroups(new Set());
+    setSelectedMembers(new Set());
+    setMemberSearchQuery('');
     setSendEmailNotification(true);
-    setSendSmsNotification(false);
   };
 
   const handleClose = () => {
@@ -130,6 +231,41 @@ export function CreateEventSheet({ visible, onClose, onSuccess }: CreateEventShe
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const renderVisibilityOption = (
+    mode: VisibilityMode,
+    label: string,
+    subtitle: string,
+    icon: keyof typeof Feather.glyphMap,
+    renderContent?: () => React.ReactNode
+  ) => {
+    const isSelected = visibilityMode === mode;
+    return (
+      <View style={styles.visibilityCardContainer}>
+        <TouchableOpacity
+          style={[styles.visibilityCard, isSelected && styles.visibilityCardSelected]}
+          onPress={() => setVisibilityMode(mode)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.visibilityIconCircle}>
+            <Feather name={icon} size={20} color="#555" />
+          </View>
+          <View style={styles.visibilityTextContainer}>
+            <Text style={styles.visibilityTitle}>{label}</Text>
+            <Text style={styles.visibilitySubtitle}>{subtitle}</Text>
+          </View>
+          {isSelected && (
+            <Feather name="check-circle" size={24} color="#2563eb" />
+          )}
+        </TouchableOpacity>
+        {isSelected && renderContent && (
+          <View style={styles.visibilityContent}>
+            {renderContent()}
+          </View>
+        )}
+      </View>
+    );
   };
 
   return (
@@ -223,7 +359,7 @@ export function CreateEventSheet({ visible, onClose, onSuccess }: CreateEventShe
                 <Text style={styles.label}>Datum *</Text>
                 <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
                   <Text style={styles.dateButtonText}>{formatDate(eventDate)}</Text>
-                  <Ionicons name="calendar-outline" size={20} color="#6b7280" />
+                  <Feather name="calendar" size={20} color="#6b7280" />
                 </TouchableOpacity>
               </View>
 
@@ -232,30 +368,112 @@ export function CreateEventSheet({ visible, onClose, onSuccess }: CreateEventShe
                   <Text style={styles.label}>Starttid</Text>
                   <TouchableOpacity style={styles.dateButton} onPress={() => setShowStartTimePicker(true)}>
                     <Text style={styles.dateButtonText}>{formatTime(startTime)}</Text>
-                    <Ionicons name="time-outline" size={20} color="#6b7280" />
+                    <Feather name="clock" size={20} color="#6b7280" />
                   </TouchableOpacity>
                 </View>
                 <View style={[styles.inputGroup, styles.flex1]}>
                   <Text style={styles.label}>Sluttid</Text>
                   <TouchableOpacity style={styles.dateButton} onPress={() => setShowEndTimePicker(true)}>
                     <Text style={styles.dateButtonText}>{formatTime(endTime)}</Text>
-                    <Ionicons name="time-outline" size={20} color="#6b7280" />
+                    <Feather name="clock" size={20} color="#6b7280" />
                   </TouchableOpacity>
                 </View>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Obligatorisk för (valfritt)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={mandatoryFor}
-                  onChangeText={setMandatoryFor}
-                  placeholder="t.ex. styrelse, spelare, alla (separera med komma)"
-                  autoCapitalize="none"
-                />
-                <Text style={styles.helpText}>
-                  Ange roller som denna aktivitet är obligatorisk för, separerade med komma
-                </Text>
+              {/* Visibility Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Vem kan se detta inlägg?</Text>
+                
+                {renderVisibilityOption('public', 'Publik', 'Alla medlemmar', 'users')}
+                
+                {renderVisibilityOption('board', 'Styrelse & Admin', 'Endast styrelse och admin', 'shield')}
+                
+                {renderVisibilityOption(
+                  'groups', 
+                  'Från grupper', 
+                  'Välj specifika grupper', 
+                  'tag',
+                  () => (
+                    <View style={styles.selectionContainer}>
+                      {loadingData ? (
+                        <ActivityIndicator />
+                      ) : groups.length === 0 ? (
+                        <Text style={styles.emptyText}>Inga grupper tillgängliga</Text>
+                      ) : (
+                        <ScrollView 
+                          style={styles.listScroll} 
+                          nestedScrollEnabled 
+                          showsVerticalScrollIndicator={true}
+                        >
+                          {groups.map(g => (
+                            <TouchableOpacity 
+                              key={g.id} 
+                              style={styles.selectionRow} 
+                              onPress={() => toggleGroup(g.id)}
+                            >
+                              <View style={[styles.checkbox, selectedGroups.has(g.id) && styles.checkboxSelected]}>
+                                {selectedGroups.has(g.id) && <Feather name="check" size={12} color="#fff" />}
+                              </View>
+                              <Text style={styles.selectionLabel}>{g.name}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      )}
+                    </View>
+                  )
+                )}
+                
+                {renderVisibilityOption(
+                  'members', 
+                  'Utvalda medlemmar', 
+                  'Välj specifika medlemmar', 
+                  'user',
+                  () => (
+                    <View style={styles.selectionContainer}>
+                      <View style={styles.searchBox}>
+                        <Feather name="search" size={16} color="#9ca3af" style={styles.searchIcon} />
+                        <TextInput 
+                          style={styles.searchInput}
+                          placeholder="Sök medlem..."
+                          value={memberSearchQuery}
+                          onChangeText={setMemberSearchQuery}
+                          autoCapitalize="none"
+                        />
+                      </View>
+                      {loadingData ? (
+                        <ActivityIndicator />
+                      ) : filteredMembers.length === 0 ? (
+                        <Text style={styles.emptyText}>Inga medlemmar hittades</Text>
+                      ) : (
+                        <ScrollView 
+                          style={styles.listScroll} 
+                          nestedScrollEnabled
+                          showsVerticalScrollIndicator={true}
+                        >
+                          {filteredMembers.slice(0, 500).map(m => (
+                            <TouchableOpacity 
+                              key={m.id} 
+                              style={styles.selectionRow} 
+                              onPress={() => toggleMember(m.id)}
+                            >
+                              <View style={[styles.checkbox, selectedMembers.has(m.id) && styles.checkboxSelected]}>
+                                {selectedMembers.has(m.id) && <Feather name="check" size={12} color="#fff" />}
+                              </View>
+                              <Avatar 
+                                url={m.profile_image_url} 
+                                size={24} 
+                                style={styles.memberAvatar} 
+                                containerStyle={{ marginRight: 8 }}
+                                name={displayName(m)}
+                              />
+                              <Text style={styles.selectionLabel}>{displayName(m)}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      )}
+                    </View>
+                  )
+                )}
               </View>
 
               <View style={styles.inputGroup}>
@@ -270,7 +488,7 @@ export function CreateEventSheet({ visible, onClose, onSuccess }: CreateEventShe
                 >
                   <View style={styles.checkbox}>
                     {sendEmailNotification && (
-                      <Ionicons name="checkmark" size={18} color="#2563eb" />
+                      <Feather name="check" size={18} color="#2563eb" />
                     )}
                   </View>
                   <View style={styles.checkboxLabel}>
@@ -279,23 +497,7 @@ export function CreateEventSheet({ visible, onClose, onSuccess }: CreateEventShe
                   </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={styles.checkboxRow}
-                  onPress={() => setSendSmsNotification(!sendSmsNotification)}
-                >
-                  <View style={styles.checkbox}>
-                    {sendSmsNotification && (
-                      <Ionicons name="checkmark" size={18} color="#2563eb" />
-                    )}
-                  </View>
-                  <View style={styles.checkboxLabel}>
-                    <Text style={styles.checkboxText}>Skicka SMS-notifiering</Text>
-                    <View style={styles.smsWarning}>
-                      <Ionicons name="alert-circle" size={14} color="#f59e0b" />
-                      <Text style={styles.smsWarningText}>Extra kostnad tillkommer</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                {/* SMS Notification removed */}
               </View>
             </View>
 
@@ -460,9 +662,15 @@ const styles = StyleSheet.create({
   section: {
     backgroundColor: '#ffffff',
     margin: 16,
+    marginBottom: 0,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   inputGroup: {
     marginBottom: 20,
@@ -622,5 +830,118 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: 200,
+  },
+  // New styles for visibility UI
+  sectionLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 16,
+  },
+  visibilityCardContainer: {
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  visibilityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  visibilityCardSelected: {
+    backgroundColor: '#eff6ff', // Light blue bg
+    borderColor: '#2563eb',
+    borderWidth: 0, // Border handled by container
+  },
+  visibilityIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  visibilityTextContainer: {
+    flex: 1,
+  },
+  visibilityTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 2,
+  },
+  visibilitySubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  visibilityContent: {
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    padding: 12,
+    backgroundColor: '#f9fafb',
+  },
+  selectionContainer: {
+    gap: 8,
+  },
+  selectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  checkboxSelected: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  selectionLabel: {
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
+  },
+  emptyText: {
+    color: '#6b7280',
+    fontStyle: 'italic',
+    padding: 8,
+    textAlign: 'center',
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
+  listScroll: {
+    maxHeight: 250, // Limit height
+  },
+  memberAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  memberAvatarPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
   },
 }); 

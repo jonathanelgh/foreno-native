@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
     Modal,
@@ -67,7 +67,7 @@ export function AttendeesModal({ visible, onClose, attendance, currentUserId }: 
     if (attendees.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="people" size={48} color="#9ca3af" />
+          <Feather name="users" size={48} color="#9ca3af" />
           <Text style={styles.emptyText}>Inga deltagare i denna kategori</Text>
         </View>
       );
@@ -135,7 +135,7 @@ export function AttendeesModal({ visible, onClose, attendance, currentUserId }: 
             </Text>
           </View>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={24} color="#374151" />
+            <Feather name="x" size={24} color="#374151" />
           </TouchableOpacity>
         </View>
 
@@ -156,7 +156,7 @@ export function AttendeesModal({ visible, onClose, attendance, currentUserId }: 
                 ]}
                 onPress={() => setActiveTab(tab)}
               >
-                <Ionicons 
+                <Feather 
                   name={getTabIcon(tab)} 
                   size={14} 
                   color={activeTab === tab ? getTabColor(tab) : '#6b7280'} 

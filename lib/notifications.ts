@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
@@ -262,16 +263,21 @@ export function setupNotificationListeners() {
 
   // Handle notification responses (when user taps notification)
   Notifications.addNotificationResponseReceivedListener((response: Notifications.NotificationResponse) => {
-    console.log('Notification response:', response);
-    const data = response.notification.request.content.data;
-    
-    // Navigate based on notification type
-    if (data?.type === 'utskick') {
-      // Navigate to utskick/news screen
-      // router.push(`/news/${data.utskick_id}`);
-    } else if (data?.type === 'event') {
-      // Navigate to event details
-      // router.push(`/events/${data.event_id}`);
+    const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+    if (!data) return;
+
+    if (data.type === 'message' && data.conversation_id && data.conversation_type) {
+      router.push({
+        pathname: '/conversation/[id]',
+        params: {
+          id: String(data.conversation_id),
+          type: data.conversation_type as 'direct' | 'organization',
+        },
+      });
+    } else if (data.type === 'utskick' && data.utskick_id) {
+      router.push({ pathname: '/news', params: { utskick_id: String(data.utskick_id) } } as never);
+    } else if (data.type === 'event' && data.event_id) {
+      router.push({ pathname: '/events', params: { event_id: String(data.event_id) } } as never);
     }
   });
 }

@@ -1,34 +1,32 @@
-// Fallback for using MaterialIcons on Android and web.
+// Using Feather icons for consistent modern look across all platforms.
 
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import Feather from '@expo/vector-icons/Feather';
 import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
 import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
-type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>;
+type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof Feather>['name']>;
 type IconSymbolName = keyof typeof MAPPING;
 
 /**
- * Add your SF Symbols to Material Icons mappings here.
- * - see Material Icons in the [Icons Directory](https://icons.expo.fyi).
- * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
+ * Modern Feather icons mapping for SF Symbols.
+ * Feather icons provide a clean, consistent look across all platforms.
  */
 const MAPPING = {
   'house.fill': 'home',
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
-  'newspaper.fill': 'article',
-  'calendar': 'calendar-today',
-  'person.2.fill': 'people',
+  'newspaper.fill': 'file-text',
+  'calendar': 'calendar',
+  'person.2.fill': 'users',
   'folder.fill': 'folder',
-  'person.fill': 'person',
+  'person.fill': 'user',
 } as IconMapping;
 
 /**
- * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
- * This ensures a consistent look across platforms, and optimal resource usage.
- * Icon `name`s are based on SF Symbols and require manual mapping to Material Icons.
+ * An icon component that uses Feather icons for a modern, consistent look.
+ * Feather icons provide excellent visual consistency across all platforms.
  */
 export function IconSymbol({
   name,
@@ -42,5 +40,5 @@ export function IconSymbol({
   style?: StyleProp<TextStyle>;
   weight?: SymbolWeight;
 }) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
+  return <Feather color={color} size={size} name={MAPPING[name]} style={style} />;
 }

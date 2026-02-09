@@ -1,26 +1,33 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Avatar } from './Avatar';
+import { Feather } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
+import {
+  getOrganizationGroups,
+  getOrganizationMembersForNewConversation,
+  type OrgMemberForPicker
+} from '../lib/api/messages';
 import { createPoll } from '../lib/api/polls';
 import { createUtskick } from '../lib/api/utskick';
 import { getFileSize, uploadDocument, uploadImage } from '../lib/storage';
+import { OrganizationConversation } from '../types/database';
 
 interface CreateUtskickSheetProps {
   visible: boolean;
@@ -41,6 +48,21 @@ interface PollOption {
   text: string;
 }
 
+type VisibilityMode = 'public' | 'board' | 'groups' | 'members';
+
+function displayName(m: OrgMemberForPicker): string {
+  const first = m.first_name?.trim() || '';
+  const last = m.last_name?.trim() || '';
+  return [first, last].filter(Boolean).join(' ') || 'Okänd';
+}
+
+function matchesSearch(m: OrgMemberForPicker, query: string): boolean {
+  if (!query.trim()) return true;
+  const q = query.trim().toLowerCase();
+  const name = displayName(m).toLowerCase();
+  return name.includes(q);
+}
+
 export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskickSheetProps) {
   const { activeOrganization, user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -50,21 +72,72 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
   const [content, setContent] = useState('');
   const [images, setImages] = useState<UploadedFile[]>([]);
   const [files, setFiles] = useState<UploadedFile[]>([]);
-  const [visibleTo, setVisibleTo] = useState<string[]>(['medlem']);
+  
+  // Visibility State
+  const [visibilityMode, setVisibilityMode] = useState<VisibilityMode>('public');
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  const [notifyMembers, setNotifyMembers] = useState(false); // "Skicka e-post..." checkbox
+  
+  // Data for pickers
+  const [groups, setGroups] = useState<OrganizationConversation[]>([]);
+  const [members, setMembers] = useState<OrgMemberForPicker[]>([]);
+  const [loadingData, setLoadingData] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+
   const [includePoll, setIncludePoll] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState<PollOption[]>([
     { id: '1', text: '' },
     { id: '2', text: '' }
   ]);
-  const [pollVisibleTo, setPollVisibleTo] = useState<string[]>(['medlem']);
   const [pollExpiresAt, setPollExpiresAt] = useState('');
 
-  const visibilityOptions = [
-    { value: 'medlem', label: 'Medlemmar' },
-    { value: 'styrelse', label: 'Styrelse' },
-    { value: 'admin', label: 'Administratörer' }
-  ];
+  // Load groups and members when needed
+  const loadData = useCallback(async () => {
+    if (!activeOrganization?.id) return;
+    setLoadingData(true);
+    try {
+      const [g, m] = await Promise.all([
+        getOrganizationGroups(activeOrganization.id),
+        getOrganizationMembersForNewConversation(activeOrganization.id)
+      ]);
+      setGroups(g);
+      setMembers(m);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingData(false);
+    }
+  }, [activeOrganization?.id]);
+
+  useEffect(() => {
+    if (visible && activeOrganization?.id) {
+      loadData();
+    }
+  }, [visible, activeOrganization?.id, loadData]);
+
+  const filteredMembers = useMemo(() => {
+    return members.filter(m => matchesSearch(m, memberSearchQuery));
+  }, [members, memberSearchQuery]);
+
+  const toggleGroup = (id: string) => {
+    setSelectedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleMember = (id: string) => {
+    setSelectedMembers(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const pickImage = async () => {
     try {
@@ -137,17 +210,6 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
     ));
   };
 
-  const toggleVisibility = (value: string, isPoll: boolean = false) => {
-    const setter = isPoll ? setPollVisibleTo : setVisibleTo;
-    const current = isPoll ? pollVisibleTo : visibleTo;
-    
-    setter(prev => 
-      prev.includes(value) 
-        ? prev.filter(v => v !== value)
-        : [...prev, value]
-    );
-  };
-
   const handleCreate = async () => {
     if (!activeOrganization || !user) return;
 
@@ -158,6 +220,16 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
 
     if (!content.trim()) {
       Alert.alert('Fel', 'Innehåll är obligatoriskt');
+      return;
+    }
+    
+    // Check visibility selections
+    if (visibilityMode === 'groups' && selectedGroups.size === 0) {
+      Alert.alert('Fel', 'Välj minst en grupp');
+      return;
+    }
+    if (visibilityMode === 'members' && selectedMembers.size === 0) {
+      Alert.alert('Fel', 'Välj minst en medlem');
       return;
     }
 
@@ -190,6 +262,20 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
         const result = await uploadDocument(file.uri, 'documents', file.name, activeOrganization.id);
         uploadedFiles.push(result.url);
       }
+      
+      // Determine visible_to array
+      // 'medlem' = public (all members)
+      // 'styrelse' = board & admin
+      // For groups/members, we might need new logic. For now mapping to existing strings if possible, or new format.
+      // Since backend might not support it, we'll construct a meta object or just use what we can.
+      // NOTE: The current backend likely only supports string tags. We will try to pass IDs if possible, or assume backend update needed.
+      // For this task, we will construct the `visibleTo` array based on selections.
+      
+      let visibleToArray: string[] = [];
+      if (visibilityMode === 'public') visibleToArray = ['medlem'];
+      else if (visibilityMode === 'board') visibleToArray = ['styrelse', 'admin'];
+      else if (visibilityMode === 'groups') visibleToArray = Array.from(selectedGroups).map(id => `group:${id}`);
+      else if (visibilityMode === 'members') visibleToArray = Array.from(selectedMembers).map(id => `user:${id}`);
 
       // Create the utskick
       const utskickData = {
@@ -197,14 +283,16 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
         title: title.trim(),
         content: content.trim(),
         published_by: user.id,
-        image_url: uploadedImages[0] || null, // Use first image for now
-        file_url: uploadedFiles[0] || null, // Use first file for now
+        image_url: uploadedImages[0] || null,
+        file_url: uploadedFiles[0] || null,
         file_name: files[0]?.name || null,
-        poll_id: null as string | null // Will be updated if poll is created
+        poll_id: null as string | null,
+        // TODO: Pass visibility and notification settings to backend once supported
+        // visible_to: visibleToArray,
+        // notify_members: notifyMembers 
       };
 
       // Create poll if included
-      let pollId: string | null = null;
       if (includePoll) {
         const validOptions = pollOptions.filter(option => option.text.trim()).map(option => option.text.trim());
         
@@ -212,19 +300,18 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
           organization_id: activeOrganization.id,
           question: pollQuestion.trim(),
           options: validOptions,
-          visible_to: pollVisibleTo,
+          visible_to: visibleToArray, // Polls table supports visible_to
           created_by: user.id,
           expires_at: pollExpiresAt ? new Date(pollExpiresAt).toISOString() : null
         };
 
         const poll = await createPoll(pollData);
-        pollId = poll.id;
         utskickData.poll_id = poll.id;
       }
 
       await createUtskick(utskickData);
 
-      Alert.alert('Framgång', 'Utskick har skapats', [
+      Alert.alert('Framgång', 'Information har skapats', [
         { text: 'OK', onPress: () => {
           resetForm();
           onSuccess();
@@ -244,20 +331,57 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
     setContent('');
     setImages([]);
     setFiles([]);
-    setVisibleTo(['medlem']);
+    setVisibilityMode('public');
+    setSelectedGroups(new Set());
+    setSelectedMembers(new Set());
+    setNotifyMembers(false);
     setIncludePoll(false);
     setPollQuestion('');
     setPollOptions([
       { id: '1', text: '' },
       { id: '2', text: '' }
     ]);
-    setPollVisibleTo(['medlem']);
     setPollExpiresAt('');
   };
 
   const handleClose = () => {
     resetForm();
     onClose();
+  };
+
+  const renderVisibilityOption = (
+    mode: VisibilityMode,
+    label: string,
+    subtitle: string,
+    icon: keyof typeof Feather.glyphMap,
+    renderContent?: () => React.ReactNode
+  ) => {
+    const isSelected = visibilityMode === mode;
+    return (
+      <View style={styles.visibilityCardContainer}>
+        <TouchableOpacity
+          style={[styles.visibilityCard, isSelected && styles.visibilityCardSelected]}
+          onPress={() => setVisibilityMode(mode)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.visibilityIconCircle}>
+            <Feather name={icon} size={20} color="#555" />
+          </View>
+          <View style={styles.visibilityTextContainer}>
+            <Text style={styles.visibilityTitle}>{label}</Text>
+            <Text style={styles.visibilitySubtitle}>{subtitle}</Text>
+          </View>
+          {isSelected && (
+            <Feather name="check-circle" size={24} color="#2563eb" />
+          )}
+        </TouchableOpacity>
+        {isSelected && renderContent && (
+          <View style={styles.visibilityContent}>
+            {renderContent()}
+          </View>
+        )}
+      </View>
+    );
   };
 
   return (
@@ -272,7 +396,7 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
           <TouchableOpacity style={styles.cancelButton} onPress={handleClose}>
             <Text style={styles.cancelButtonText}>Avbryt</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Nytt utskick</Text>
+          <Text style={styles.title}>Ny information</Text>
           <TouchableOpacity 
             style={[styles.createButton, loading && styles.createButtonDisabled]} 
             onPress={handleCreate}
@@ -300,7 +424,7 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
                   style={styles.input}
                   value={title}
                   onChangeText={setTitle}
-                  placeholder="Ange titel för utskicket"
+                  placeholder="Ange titel för informationen"
                   autoCapitalize="sentences"
                 />
               </View>
@@ -311,39 +435,138 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
                   style={[styles.input, styles.textArea]}
                   value={content}
                   onChangeText={setContent}
-                  placeholder="Skriv innehållet för utskicket..."
+                  placeholder="Skriv innehållet för informationen..."
                   multiline
                   numberOfLines={8}
                   textAlignVertical="top"
                 />
               </View>
+            </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Synligt för</Text>
-                <View style={styles.checkboxContainer}>
-                  {visibilityOptions.map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={styles.checkbox}
-                      onPress={() => toggleVisibility(option.value)}
-                    >
-                      <Ionicons
-                        name={visibleTo.includes(option.value) ? "checkbox" : "square-outline"}
-                        size={20}
-                        color={visibleTo.includes(option.value) ? "#007AFF" : "#666"}
+            {/* Visibility Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Vem kan se detta inlägg?</Text>
+              
+              {renderVisibilityOption('public', 'Publik', 'Alla medlemmar', 'users')}
+              
+              {renderVisibilityOption('board', 'Styrelse & Admin', 'Endast styrelse och admin', 'shield')}
+              
+              {renderVisibilityOption(
+                'groups', 
+                'Från grupper', 
+                'Välj specifika grupper', 
+                'tag',
+                () => (
+                  <View style={styles.selectionContainer}>
+                    {loadingData ? (
+                      <ActivityIndicator />
+                    ) : groups.length === 0 ? (
+                      <Text style={styles.emptyText}>Inga grupper tillgängliga</Text>
+                    ) : (
+                      <ScrollView 
+                        style={styles.listScroll} 
+                        nestedScrollEnabled 
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {groups.map(g => (
+                          <TouchableOpacity 
+                            key={g.id} 
+                            style={styles.selectionRow} 
+                            onPress={() => toggleGroup(g.id)}
+                          >
+                            <View style={[styles.checkbox, selectedGroups.has(g.id) && styles.checkboxSelected]}>
+                              {selectedGroups.has(g.id) && <Feather name="check" size={12} color="#fff" />}
+                            </View>
+                            <Text style={styles.selectionLabel}>{g.name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    )}
+                  </View>
+                )
+              )}
+              
+              {renderVisibilityOption(
+                'members', 
+                'Utvalda medlemmar', 
+                'Välj specifika medlemmar', 
+                'user',
+                () => (
+                  <View style={styles.selectionContainer}>
+                    <View style={styles.searchBox}>
+                      <Feather name="search" size={16} color="#9ca3af" style={styles.searchIcon} />
+                      <TextInput 
+                        style={styles.searchInput}
+                        placeholder="Sök medlem..."
+                        value={memberSearchQuery}
+                        onChangeText={setMemberSearchQuery}
+                        autoCapitalize="none"
                       />
-                      <Text style={styles.checkboxLabel}>{option.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                    </View>
+                    {loadingData ? (
+                      <ActivityIndicator />
+                    ) : filteredMembers.length === 0 ? (
+                      <Text style={styles.emptyText}>Inga medlemmar hittades</Text>
+                    ) : (
+                      <ScrollView 
+                        style={styles.listScroll} 
+                        nestedScrollEnabled
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {filteredMembers.slice(0, 500).map(m => (
+                          <TouchableOpacity 
+                            key={m.id} 
+                            style={styles.selectionRow} 
+                            onPress={() => toggleMember(m.id)}
+                          >
+                            <View style={[styles.checkbox, selectedMembers.has(m.id) && styles.checkboxSelected]}>
+                              {selectedMembers.has(m.id) && <Feather name="check" size={12} color="#fff" />}
+                            </View>
+                            <Avatar 
+                              url={m.profile_image_url} 
+                              size={24} 
+                              style={styles.memberAvatar} 
+                              containerStyle={{ marginRight: 8 }}
+                              name={displayName(m)}
+                            />
+                            <Text style={styles.selectionLabel}>{displayName(m)}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    )}
+                  </View>
+                )
+              )}
+            </View>
+
+            {/* Notification Section */}
+            <View style={styles.section}>
+              <View style={styles.notificationHeader}>
+                <Feather name="bell" size={20} color="#f59e0b" />
+                <Text style={styles.notificationTitle}>Meddela medlemmar</Text>
               </View>
+              
+              <TouchableOpacity 
+                style={styles.notificationRow}
+                onPress={() => setNotifyMembers(!notifyMembers)}
+              >
+                <View style={[styles.checkboxSquare, notifyMembers && styles.checkboxSquareSelected]}>
+                  {notifyMembers && <Feather name="check" size={14} color="#fff" />}
+                </View>
+                <View style={styles.notificationTextContainer}>
+                  <Text style={styles.notificationLabel}>Skicka e-post till alla medlemmar</Text>
+                  <Text style={styles.notificationSubtitle}>
+                    Medlemmar som har inaktiverat notifikationer kommer inte att få meddelanden.
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.label}>Bilder</Text>
                 <TouchableOpacity onPress={pickImage} style={styles.addButton}>
-                  <Ionicons name="add" size={20} color="#007AFF" />
+                  <Feather name="plus" size={20} color="#007AFF" />
                   <Text style={styles.addButtonText}>Lägg till bild</Text>
                 </TouchableOpacity>
               </View>
@@ -355,7 +578,7 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
                     <Text style={styles.fileSize}>{getFileSize(image.size)}</Text>
                   </View>
                   <TouchableOpacity onPress={() => removeImage(index)}>
-                    <Ionicons name="trash" size={20} color="#FF3B30" />
+                    <Feather name="trash-2" size={20} color="#FF3B30" />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -365,19 +588,19 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
               <View style={styles.sectionHeader}>
                 <Text style={styles.label}>Filer</Text>
                 <TouchableOpacity onPress={pickDocument} style={styles.addButton}>
-                  <Ionicons name="add" size={20} color="#007AFF" />
+                  <Feather name="plus" size={20} color="#007AFF" />
                   <Text style={styles.addButtonText}>Lägg till fil</Text>
                 </TouchableOpacity>
               </View>
               {files.map((file, index) => (
                 <View key={index} style={styles.fileItem}>
-                  <Ionicons name="document" size={24} color="#666" />
+                  <Feather name="file-text" size={24} color="#666" />
                   <View style={styles.fileInfo}>
                     <Text style={styles.fileName}>{file.name}</Text>
                     <Text style={styles.fileSize}>{getFileSize(file.size)}</Text>
                   </View>
                   <TouchableOpacity onPress={() => removeFile(index)}>
-                    <Ionicons name="trash" size={20} color="#FF3B30" />
+                    <Feather name="trash-2" size={20} color="#FF3B30" />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -390,8 +613,8 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
                   onPress={() => setIncludePoll(!includePoll)} 
                   style={styles.toggleButton}
                 >
-                  <Ionicons
-                    name={includePoll ? "checkbox" : "square-outline"}
+                  <Feather
+                    name={includePoll ? "check-square" : "square"}
                     size={20}
                     color={includePoll ? "#007AFF" : "#666"}
                   />
@@ -416,7 +639,7 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
                     <View style={styles.sectionHeader}>
                       <Text style={styles.pollLabel}>Alternativ</Text>
                       <TouchableOpacity onPress={addPollOption} style={styles.addButton}>
-                        <Ionicons name="add" size={16} color="#007AFF" />
+                        <Feather name="plus" size={16} color="#007AFF" />
                         <Text style={styles.addButtonText}>Lägg till</Text>
                       </TouchableOpacity>
                     </View>
@@ -431,31 +654,11 @@ export function CreateUtskickSheet({ visible, onClose, onSuccess }: CreateUtskic
                         />
                         {pollOptions.length > 2 && (
                           <TouchableOpacity onPress={() => removePollOption(option.id)}>
-                            <Ionicons name="trash" size={18} color="#FF3B30" />
+                            <Feather name="trash-2" size={18} color="#FF3B30" />
                           </TouchableOpacity>
                         )}
                       </View>
                     ))}
-                  </View>
-
-                  <View style={styles.pollInputSection}>
-                    <Text style={styles.pollLabel}>Synligt för</Text>
-                    <View style={styles.checkboxContainer}>
-                      {visibilityOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option.value}
-                          style={styles.checkbox}
-                          onPress={() => toggleVisibility(option.value, true)}
-                        >
-                          <Ionicons
-                            name={pollVisibleTo.includes(option.value) ? "checkbox" : "square-outline"}
-                            size={20}
-                            color={pollVisibleTo.includes(option.value) ? "#007AFF" : "#666"}
-                          />
-                          <Text style={styles.checkboxLabel}>{option.label}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
                   </View>
 
                   <View style={styles.pollInputSection}>
@@ -531,9 +734,21 @@ const styles = StyleSheet.create({
   section: {
     backgroundColor: '#ffffff',
     margin: 16,
+    marginBottom: 0,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sectionLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 16,
   },
   inputGroup: {
     marginBottom: 20,
@@ -557,9 +772,6 @@ const styles = StyleSheet.create({
   textArea: {
     height: 120,
     paddingTop: 10,
-  },
-  marginTop: {
-    marginTop: 8,
   },
   helpText: {
     fontSize: 12,
@@ -645,18 +857,165 @@ const styles = StyleSheet.create({
   pollOptionInput: {
     flex: 1,
   },
-  checkboxContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
+  // New styles for visibility UI
+  visibilityCardContainer: {
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    overflow: 'hidden',
   },
-  checkbox: {
+  visibilityCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  visibilityCardSelected: {
+    backgroundColor: '#eff6ff', // Light blue bg
+    borderColor: '#2563eb',
+    borderWidth: 0, // Border handled by container
+  },
+  visibilityIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  visibilityTextContainer: {
+    flex: 1,
+  },
+  visibilityTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 2,
+  },
+  visibilitySubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  visibilityContent: {
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    padding: 12,
+    backgroundColor: '#f9fafb',
+  },
+  selectionContainer: {
     gap: 8,
   },
-  checkboxLabel: {
-    fontSize: 16,
-    color: '#000',
+  selectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#d1d5db',
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxSelected: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  checkboxSquare: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#d1d5db',
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    marginTop: 2,
+  },
+  checkboxSquareSelected: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  selectionLabel: {
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
+  },
+  emptyText: {
+    color: '#6b7280',
+    fontStyle: 'italic',
+    padding: 8,
+    textAlign: 'center',
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
+  listScroll: {
+    maxHeight: 250, // Limit height
+  },
+  memberAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  memberAvatarPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  notificationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  notificationTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  notificationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  notificationTextContainer: {
+    flex: 1,
+  },
+  notificationLabel: {
+    fontSize: 14,
+    color: '#1f2937',
+    fontWeight: '500',
+  },
+  notificationSubtitle: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
   },
 }); 

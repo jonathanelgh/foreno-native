@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { UnreadCountProvider } from '../contexts/UnreadCountContext';
 import { initializeNotifications } from '../lib/notifications';
 
 function RootLayoutNav() {
@@ -109,12 +110,18 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
+      <UnreadCountProvider>
+        <Stack>
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="conversation/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="bookings" options={{ headerShown: false }} />
+          <Stack.Screen name="fees" options={{ headerShown: false }} />
+          <Stack.Screen name="marketplace" />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </UnreadCountProvider>
     </ThemeProvider>
   );
 }

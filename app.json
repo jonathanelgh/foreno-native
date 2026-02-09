@@ -11,12 +11,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.foreno.native",
-      "buildNumber": "4",
+      "buildNumber": "6",
       "infoPlist": {
-        "NSCameraUsageDescription": "Föreno behöver åtkomst till kameran för att ta bilder till utskick och profilbilder.",
-        "NSPhotoLibraryUsageDescription": "Föreno behöver åtkomst till ditt fotobibliotek för att välja bilder till utskick och profilbilder.",
+        "NSCameraUsageDescription": "Föreno behöver åtkomst till kameran för att ta bilder till information och profilbilder.",
+        "NSPhotoLibraryUsageDescription": "Föreno behöver åtkomst till ditt fotobibliotek för att välja bilder till information och profilbilder.",
         "NSPhotoLibraryAddUsageDescription": "Föreno behöver tillgång för att spara bilder till ditt fotobibliotek.",
-        "NSUserNotificationsUsageDescription": "Föreno vill skicka notiser om nya utskick och kommande aktiviteter.",
+        "NSUserNotificationsUsageDescription": "Föreno vill skicka notiser om ny information och kommande aktiviteter.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },

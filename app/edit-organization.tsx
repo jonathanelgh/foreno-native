@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -205,7 +205,7 @@ export default function EditOrganizationScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-          <Ionicons name="close" size={24} color="#374151" />
+          <Feather name="x" size={24} color="#374151" />
         </TouchableOpacity>
         <Text style={styles.title}>Redigera organisation</Text>
         <TouchableOpacity 
@@ -324,8 +324,8 @@ export default function EditOrganizationScreen() {
               style={styles.checkboxRow}
               onPress={() => setSameBillingAddress(!sameBillingAddress)}
             >
-              <Ionicons
-                name={sameBillingAddress ? "checkbox" : "square-outline"}
+              <Feather
+                name={sameBillingAddress ? "check-square" : "square"}
                 size={20}
                 color={sameBillingAddress ? "#007AFF" : "#666"}
               />
@@ -379,7 +379,7 @@ export default function EditOrganizationScreen() {
               <View style={styles.imageHeader}>
                 <Text style={styles.label}>Omslagsbild</Text>
                 <TouchableOpacity onPress={pickCoverImage} style={styles.addImageButton}>
-                  <Ionicons name="add" size={16} color="#007AFF" />
+                  <Feather name="plus" size={16} color="#007AFF" />
                   <Text style={styles.addImageButtonText}>
                     {coverImage ? 'Ändra bild' : 'Lägg till bild'}
                   </Text>
@@ -395,7 +395,7 @@ export default function EditOrganizationScreen() {
                     )}
                   </View>
                   <TouchableOpacity onPress={removeCoverImage}>
-                    <Ionicons name="trash" size={20} color="#FF3B30" />
+                    <Feather name="trash-2" size={20} color="#FF3B30" />
                   </TouchableOpacity>
                 </View>
               )}
@@ -405,7 +405,7 @@ export default function EditOrganizationScreen() {
               <View style={styles.imageHeader}>
                 <Text style={styles.label}>Logotyp</Text>
                 <TouchableOpacity onPress={pickLogoImage} style={styles.addImageButton}>
-                  <Ionicons name="add" size={16} color="#007AFF" />
+                  <Feather name="plus" size={16} color="#007AFF" />
                   <Text style={styles.addImageButtonText}>
                     {logoImage ? 'Ändra logotyp' : 'Lägg till logotyp'}
                   </Text>
@@ -421,7 +421,7 @@ export default function EditOrganizationScreen() {
                     )}
                   </View>
                   <TouchableOpacity onPress={removeLogoImage}>
-                    <Ionicons name="trash" size={20} color="#FF3B30" />
+                    <Feather name="trash-2" size={20} color="#FF3B30" />
                   </TouchableOpacity>
                 </View>
               )}

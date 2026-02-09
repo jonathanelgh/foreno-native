@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
     Alert,
@@ -132,7 +132,7 @@ export function CreateContactSheet({ visible, onClose, onSuccess }: CreateContac
                     style={[styles.typeButton, contactType === 'external' && styles.typeButtonActive]}
                     onPress={() => setContactType('external')}
                   >
-                    <Ionicons 
+                    <Feather 
                       name="business" 
                       size={16} 
                       color={contactType === 'external' ? '#ffffff' : '#6b7280'} 
@@ -146,7 +146,7 @@ export function CreateContactSheet({ visible, onClose, onSuccess }: CreateContac
                     style={[styles.typeButton, contactType === 'user' && styles.typeButtonActive]}
                     onPress={() => setContactType('user')}
                   >
-                    <Ionicons 
+                    <Feather 
                       name="people" 
                       size={16} 
                       color={contactType === 'user' ? '#ffffff' : '#6b7280'} 

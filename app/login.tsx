@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 
 const AnimatedImage = Animated.createAnimatedComponent(Image);
@@ -133,7 +133,7 @@ export default function LoginScreen() {
                 onPress={() => setShowEmailForm(true)}
                 disabled={loading || googleLoading}
               >
-                <Ionicons name="mail-outline" size={20} color="#1f2937" style={styles.socialIcon} />
+                <Feather name="mail" size={20} color="#1f2937" style={styles.socialIcon} />
                 <Text style={styles.socialButtonText}>Logga in med e-post</Text>
               </TouchableOpacity>
             )}
@@ -178,7 +178,7 @@ export default function LoginScreen() {
                     <ActivityIndicator color="#ffffff" />
                   ) : (
                     <>
-                      <Ionicons name="mail-outline" size={20} color="#ffffff" style={styles.emailIcon} />
+                      <Feather name="mail" size={20} color="#ffffff" style={styles.emailIcon} />
                       <Text style={styles.emailButtonText}>Logga in</Text>
                     </>
                   )}
