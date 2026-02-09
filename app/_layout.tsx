@@ -117,7 +117,14 @@ function RootLayoutNav() {
           <Stack.Screen name="conversation/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="bookings" options={{ headerShown: false }} />
           <Stack.Screen name="fees" options={{ headerShown: false }} />
+          <Stack.Screen name="felanmalningar" options={{ headerShown: false }} />
+          <Stack.Screen name="contacts" />
+          <Stack.Screen name="events" />
+          <Stack.Screen name="my-details" />
+          <Stack.Screen name="support" />
           <Stack.Screen name="marketplace" />
+          <Stack.Screen name="members" />
+          <Stack.Screen name="listing/[id]" />
           <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style="auto" />

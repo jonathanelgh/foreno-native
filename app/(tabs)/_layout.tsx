@@ -44,19 +44,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="events"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="contacts"
-        options={{
-          href: null, // Hide from tab bar
-          tabBarStyle: { display: 'none' }, // Hide tab bar on this screen
-        }}
-      />
-      <Tabs.Screen
         name="messages"
         options={{
           title: 'Meddelanden',

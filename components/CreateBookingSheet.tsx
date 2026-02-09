@@ -18,22 +18,137 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import {
   BookingProductWithDetails,
+  BookingProductAvailability,
+  BusySlot,
   createBooking,
   getBookingProducts,
-  getBookingsForProduct
+  getBusySlots,
 } from '../lib/api/bookings';
 import { getMessageImageUrl } from '../lib/storage';
+import type { BookingConfirmationData } from './BookingConfirmationModal';
+
+// ── Time-slot helper functions ──
+
+type AbsWindow = { start: number; end: number };
+
+/**
+ * Build absolute availability windows (as epoch ms ranges) for a given
+ * base date and a number of surrounding days. This lets us check coverage
+ * for slots that span midnight or multiple days.
+ */
+function buildAbsoluteAvailabilityWindows(
+  availability: BookingProductAvailability[],
+  baseDate: Date,
+  extraDays: number
+): AbsWindow[] {
+  const result: AbsWindow[] = [];
+
+  // Check the selected day and a few surrounding days
+  for (let dayOffset = -1; dayOffset <= extraDays; dayOffset++) {
+    const day = new Date(baseDate);
+    day.setDate(day.getDate() + dayOffset);
+    day.setHours(0, 0, 0, 0);
+    const isoWeekday = day.getDay() === 0 ? 7 : day.getDay();
+
+    for (const w of availability) {
+      if (!w.is_active || w.weekday !== isoWeekday || !w.start_time || !w.end_time) continue;
+
+      const [sH, sM] = w.start_time.split(':').map(Number);
+      const [eH, eM] = w.end_time.split(':').map(Number);
+
+      const wStart = new Date(day);
+      wStart.setHours(sH, sM, 0, 0);
+      const wEnd = new Date(day);
+      wEnd.setHours(eH, eM, 0, 0);
+
+      // 24-hour window
+      if (w.start_time === w.end_time) {
+        wEnd.setDate(wEnd.getDate() + 1);
+      }
+      // Overnight window
+      else if (wEnd.getTime() <= wStart.getTime()) {
+        wEnd.setDate(wEnd.getDate() + 1);
+      }
+
+      result.push({ start: wStart.getTime(), end: wEnd.getTime() });
+    }
+  }
+
+  // Sort by start time for efficient walking
+  result.sort((a, b) => a.start - b.start);
+  return result;
+}
+
+/**
+ * Walk from slotStart to slotEnd, checking that every point is covered
+ * by at least one availability window. Returns false as soon as a gap
+ * is found.
+ */
+function isSlotFullyCoveredByAvailability(
+  slotStart: number,
+  slotEnd: number,
+  windows: AbsWindow[]
+): boolean {
+  let cursor = slotStart;
+
+  while (cursor < slotEnd) {
+    // Find a window that contains `cursor`
+    const covering = windows.find((w) => w.start <= cursor && cursor < w.end);
+    if (!covering) return false;
+
+    // Advance cursor to the end of this window (or slotEnd, whichever is sooner)
+    cursor = Math.min(covering.end, slotEnd);
+  }
+
+  return true;
+}
+
+/**
+ * Check whether a slot [slotStart, slotEnd) overlaps with any busy range.
+ * Overlap: aStart < bEnd && aEnd > bStart
+ */
+function rangesOverlap(
+  slotStart: number,
+  slotEnd: number,
+  busyRanges: { start: number; end: number }[]
+): boolean {
+  return busyRanges.some((b) => slotStart < b.end && slotEnd > b.start);
+}
+
+/**
+ * Format a duration in minutes to a human-readable Swedish string.
+ * Examples: 30 → "30 min", 60 → "1 tim", 120 → "2 tim", 1440 → "1 dygn"
+ */
+function formatDuration(minutes: number): string {
+  if (minutes >= 1440 && minutes % 1440 === 0) {
+    const days = minutes / 1440;
+    return days === 1 ? '1 dygn' : `${days} dygn`;
+  }
+  if (minutes >= 60 && minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return hours === 1 ? '1 tim' : `${hours} tim`;
+  }
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours} tim ${mins} min`;
+  }
+  return `${minutes} min`;
+}
+
+// ── Component ──
 
 interface CreateBookingSheetProps {
   visible: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  /** Called after a booking is created. Receives data for the confirmation popup. */
+  onBooked: (data: BookingConfirmationData) => void;
   initialProduct?: BookingProductWithDetails | null;
 }
 
 type Step = 'product' | 'duration' | 'date' | 'time' | 'confirm';
 
-export function CreateBookingSheet({ visible, onClose, onSuccess, initialProduct }: CreateBookingSheetProps) {
+export function CreateBookingSheet({ visible, onClose, onBooked, initialProduct }: CreateBookingSheetProps) {
   const { activeOrganization, user, memberships } = useAuth();
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState<BookingProductWithDetails[]>([]);
@@ -114,78 +229,128 @@ export function CreateBookingSheet({ visible, onClose, onSuccess, initialProduct
   const loadAvailableSlots = async () => {
     if (!selectedProduct || !selectedDuration) return;
     setLoadingSlots(true);
-    
+
     try {
-      // Logic to calculate slots
-      // 1. Get availability rules for the selected weekday
-      const dayOfWeek = selectedDate.getDay() === 0 ? 7 : selectedDate.getDay(); // 1-7 (Mon-Sun)
-      const rules = selectedProduct.availability.filter(a => a.weekday === dayOfWeek && a.is_active);
-      
-      if (rules.length === 0) {
+      const SLOT_STEP_MINUTES = 15;
+      const MIN_ADVANCE_MINUTES = 5;
+      const durationMs = selectedDuration * 60_000;
+
+      // 1. Get active availability windows for the selected weekday (ISO: Mon=1..Sun=7)
+      const dayOfWeek = selectedDate.getDay() === 0 ? 7 : selectedDate.getDay();
+      const windows = selectedProduct.availability.filter(
+        (a) => a.weekday === dayOfWeek && a.is_active
+      );
+
+      if (windows.length === 0) {
         setAvailableSlots([]);
         setLoadingSlots(false);
         return;
       }
 
-      // 2. Fetch existing bookings for the day
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      
-      const existingBookings = await getBookingsForProduct(selectedProduct.id, startOfDay, endOfDay);
+      // 2. Compute absolute Date ranges for each window on the selected date.
+      //    Also collect the full availability for isSlotFullyCoveredByAvailability.
+      type AbsWindow = { start: Date; end: Date };
+      const absWindows: AbsWindow[] = [];
 
-      // 3. Generate slots
-      const slots: { start: Date; end: Date }[] = [];
-      const now = new Date();
+      for (const w of windows) {
+        if (!w.start_time || !w.end_time) continue;
+        const [sH, sM] = w.start_time.split(':').map(Number);
+        const [eH, eM] = w.end_time.split(':').map(Number);
 
-      for (const rule of rules) {
-        if (!rule.start_time || !rule.end_time) continue;
-        
-        const [startH, startM] = rule.start_time.split(':').map(Number);
-        const [endH, endM] = rule.end_time.split(':').map(Number);
-        
-        // Create base dates for rule start/end on the selected date
-        let current = new Date(selectedDate);
-        current.setHours(startH, startM, 0, 0);
-        
-        const ruleEnd = new Date(selectedDate);
-        ruleEnd.setHours(endH, endM, 0, 0);
+        const wStart = new Date(selectedDate);
+        wStart.setHours(sH, sM, 0, 0);
 
-        // If rule crosses midnight (e.g. 22:00 - 02:00), handle next day
-        if (ruleEnd < current) {
-          ruleEnd.setDate(ruleEnd.getDate() + 1);
+        const wEnd = new Date(selectedDate);
+        wEnd.setHours(eH, eM, 0, 0);
+
+        // 24-hour window: start_time === end_time  →  full day
+        if (w.start_time === w.end_time) {
+          wEnd.setDate(wEnd.getDate() + 1);
+        }
+        // Overnight window: end < start  →  end is on the next day
+        else if (wEnd.getTime() <= wStart.getTime()) {
+          wEnd.setDate(wEnd.getDate() + 1);
         }
 
-        while (current.getTime() + selectedDuration * 60000 <= ruleEnd.getTime()) {
-          const slotStart = new Date(current);
-          const slotEnd = new Date(current.getTime() + selectedDuration * 60000);
+        absWindows.push({ start: wStart, end: wEnd });
+      }
 
-          // Check if slot is in the past
-          if (slotStart < now) {
-            current.setMinutes(current.getMinutes() + 30);
-            continue; 
+      // 3. Determine query range for busy slots (cover overnight & multi-day durations)
+      let queryFrom = new Date(selectedDate);
+      queryFrom.setHours(0, 0, 0, 0);
+      let queryTo = new Date(selectedDate);
+      queryTo.setHours(0, 0, 0, 0);
+      queryTo.setDate(queryTo.getDate() + 2); // next day end to cover overnight
+
+      // Extend further if duration is very long (multi-day)
+      const extraDays = Math.ceil(selectedDuration / 1440);
+      if (extraDays > 1) {
+        queryTo.setDate(queryTo.getDate() + extraDays);
+      }
+
+      // 4. Fetch busy (confirmed) bookings via RPC
+      const busySlots = await getBusySlots(selectedProduct.id, queryFrom, queryTo);
+      const busyRanges = busySlots.map((b) => ({
+        start: new Date(b.start_at).getTime(),
+        end: new Date(b.end_at).getTime(),
+      }));
+
+      // 5. Build the full set of availability windows for the surrounding days
+      //    (needed for isSlotFullyCoveredByAvailability when slots span midnight)
+      const allAbsWindows = buildAbsoluteAvailabilityWindows(
+        selectedProduct.availability,
+        selectedDate,
+        extraDays + 1
+      );
+
+      // 6. Generate candidate slots
+      const now = new Date();
+      const minStart = new Date(now.getTime() + MIN_ADVANCE_MINUTES * 60_000);
+      const slots: { start: Date; end: Date }[] = [];
+      const seenStartTimes = new Set<number>();
+
+      for (const aw of absWindows) {
+        let cursor = aw.start.getTime();
+        const windowEnd = aw.end.getTime();
+
+        while (cursor < windowEnd) {
+          const slotStart = cursor;
+          const slotEnd = cursor + durationMs;
+
+          // Filter 1: Must be at least MIN_ADVANCE_MINUTES in the future
+          if (slotStart < minStart.getTime()) {
+            cursor += SLOT_STEP_MINUTES * 60_000;
+            continue;
           }
 
-          // Check overlap
-          const isOverlapping = existingBookings.some(b => {
-            const bStart = new Date(b.start_at);
-            const bEnd = new Date(b.end_at);
-            // Overlap logic: (StartA < EndB) and (EndA > StartB)
-            return (slotStart < bEnd && slotEnd > bStart);
-          });
-
-          if (!isOverlapping) {
-            slots.push({ start: slotStart, end: slotEnd });
+          // Filter 2: No duplicate start times
+          if (seenStartTimes.has(slotStart)) {
+            cursor += SLOT_STEP_MINUTES * 60_000;
+            continue;
           }
 
-          // Move next - 30 min steps
-          current.setMinutes(current.getMinutes() + 30);
+          // Filter 3: Entire slot must be covered by availability windows
+          if (!isSlotFullyCoveredByAvailability(slotStart, slotEnd, allAbsWindows)) {
+            cursor += SLOT_STEP_MINUTES * 60_000;
+            continue;
+          }
+
+          // Filter 4: Must not overlap any existing booking
+          if (rangesOverlap(slotStart, slotEnd, busyRanges)) {
+            cursor += SLOT_STEP_MINUTES * 60_000;
+            continue;
+          }
+
+          seenStartTimes.add(slotStart);
+          slots.push({ start: new Date(slotStart), end: new Date(slotEnd) });
+
+          cursor += SLOT_STEP_MINUTES * 60_000;
         }
       }
-      
-      setAvailableSlots(slots);
 
+      // 7. Sort chronologically
+      slots.sort((a, b) => a.start.getTime() - b.start.getTime());
+      setAvailableSlots(slots);
     } catch (e) {
       console.error(e);
       Alert.alert('Fel', 'Kunde inte ladda tider');
@@ -213,13 +378,17 @@ export function CreateBookingSheet({ visible, onClose, onSuccess, initialProduct
         selectedTimeSlot.end,
         user.id
       );
-      
-      Alert.alert('Bokat!', 'Din bokning är bekräftad.', [
-        { text: 'OK', onPress: () => {
-          handleClose();
-          onSuccess();
-        }}
-      ]);
+
+      // Close the sheet and pass confirmation data to parent
+      const bookingData: BookingConfirmationData = {
+        productName: selectedProduct.name || 'Bokning',
+        productInfo: selectedProduct.info || null,
+        startAt: selectedTimeSlot.start,
+        endAt: selectedTimeSlot.end,
+        durationMinutes: selectedDuration!,
+      };
+      handleClose();
+      onBooked(bookingData);
     } catch (e) {
       console.error(e);
       Alert.alert('Fel', 'Kunde inte skapa bokning');
@@ -320,7 +489,7 @@ export function CreateBookingSheet({ visible, onClose, onSuccess, initialProduct
                   onPress={() => handleDurationSelect(d.minutes)}
                 >
                   <Feather name="clock" size={24} color="#2563eb" />
-                  <Text style={styles.optionText}>{d.minutes} minuter</Text>
+                  <Text style={styles.optionText}>{formatDuration(d.minutes)}</Text>
                   <Feather name="chevron-right" size={24} color="#9ca3af" />
                 </TouchableOpacity>
               ))}
@@ -403,7 +572,7 @@ export function CreateBookingSheet({ visible, onClose, onSuccess, initialProduct
                 </View>
                 <View style={styles.confirmRow}>
                   <Text style={styles.confirmLabel}>Längd</Text>
-                  <Text style={styles.confirmValue}>{selectedDuration} min</Text>
+                  <Text style={styles.confirmValue}>{selectedDuration ? formatDuration(selectedDuration) : ''}</Text>
                 </View>
               </View>
 
@@ -421,6 +590,7 @@ export function CreateBookingSheet({ visible, onClose, onSuccess, initialProduct
             </View>
           )}
         </View>
+
       </SafeAreaView>
     </Modal>
   );

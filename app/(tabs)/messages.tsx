@@ -304,7 +304,12 @@ export default function MessagesScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Meddelanden</Text>
+          <View style={styles.headerTitles}>
+            <Text style={styles.headerTitle}>Meddelanden</Text>
+            {activeOrganization && (
+              <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
+            )}
+          </View>
           {headerRight}
         </View>
         <View style={styles.centered}>
@@ -324,7 +329,12 @@ export default function MessagesScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Meddelanden</Text>
+          <View style={styles.headerTitles}>
+            <Text style={styles.headerTitle}>Meddelanden</Text>
+            {activeOrganization && (
+              <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
+            )}
+          </View>
           {headerRight}
         </View>
         <View style={styles.content}>
@@ -398,7 +408,12 @@ export default function MessagesScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Meddelanden</Text>
+        <View style={styles.headerTitles}>
+          <Text style={styles.headerTitle}>Meddelanden</Text>
+          {activeOrganization && (
+            <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
+          )}
+        </View>
         {headerRight}
       </View>
       <FlatList<FlatItem>
@@ -445,10 +460,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
+  headerTitles: {
+    flex: 1,
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1f2937',
+  },
+  headerSubtitle: {
+    marginTop: 2,
+    fontSize: 14,
+    color: '#64748b',
   },
   headerRightBtn: {
     padding: 8,

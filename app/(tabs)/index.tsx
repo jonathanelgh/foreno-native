@@ -95,6 +95,14 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.headerContainer}>
+        <View style={styles.headerTitles}>
+          <Text style={styles.headerTitle}>Startsida</Text>
+          {activeOrganization && (
+            <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
+          )}
+        </View>
+      </View>
       <ScrollView contentContainerStyle={styles.content}>
         
         {/* Latest Information Card */}
@@ -167,11 +175,35 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  headerTitles: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  headerSubtitle: {
+    marginTop: 2,
+    fontSize: 14,
+    color: '#64748b',
   },
   content: {
     padding: 16,
-    paddingTop: 24,
+    paddingTop: 16,
     gap: 16,
   },
   mainCard: {

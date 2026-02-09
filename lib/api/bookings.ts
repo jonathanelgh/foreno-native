@@ -100,6 +100,34 @@ export async function getBookingsForProduct(
   return data || [];
 }
 
+export type BusySlot = { start_at: string; end_at: string };
+
+/**
+ * Get confirmed bookings for a product within a date range using the
+ * `get_booking_busy_slots` RPC. Falls back to a direct query if the
+ * RPC is unavailable.
+ */
+export async function getBusySlots(
+  productId: string,
+  from: Date,
+  to: Date
+): Promise<BusySlot[]> {
+  const { data, error } = await supabase.rpc('get_booking_busy_slots', {
+    p_product_id: productId,
+    p_from: from.toISOString(),
+    p_to: to.toISOString(),
+  });
+
+  if (error) {
+    // Fallback: query bookings table directly
+    console.warn('get_booking_busy_slots RPC failed, using fallback:', error.message);
+    const bookings = await getBookingsForProduct(productId, from, to);
+    return bookings.map((b) => ({ start_at: b.start_at, end_at: b.end_at }));
+  }
+
+  return (data || []) as BusySlot[];
+}
+
 export async function createBooking(
   productId: string,
   membershipId: string,

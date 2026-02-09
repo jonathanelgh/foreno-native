@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BookingConfirmationModal, BookingConfirmationData } from '../components/BookingConfirmationModal';
 import { CreateBookingSheet } from '../components/CreateBookingSheet';
 import { ProductImage } from '../components/ProductImage';
 import { useAuth } from '../contexts/AuthContext';
@@ -33,6 +34,11 @@ export default function BookingsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [selectedProductForSheet, setSelectedProductForSheet] = useState<BookingProductWithDetails | null>(null);
+
+  // Detail / confirmation modal state
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedBookingData, setSelectedBookingData] = useState<BookingConfirmationData | null>(null);
+  const [showDetailIsConfirmation, setShowDetailIsConfirmation] = useState(false);
 
   const loadData = async () => {
     if (!user || !activeOrganization) return;
@@ -64,6 +70,22 @@ export default function BookingsScreen() {
   const handleProductPress = (product: BookingProductWithDetails) => {
     setSelectedProductForSheet(product);
     setShowCreateSheet(true);
+  };
+
+  const handleBookingPress = (booking: BookingWithProduct) => {
+    const start = new Date(booking.start_at);
+    const end = new Date(booking.end_at);
+    const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60_000);
+
+    setSelectedBookingData({
+      productName: booking.booking_products?.name || 'Okänt objekt',
+      productInfo: booking.booking_products?.info || null,
+      startAt: start,
+      endAt: end,
+      durationMinutes,
+    });
+    setShowDetailIsConfirmation(false);
+    setShowDetailModal(true);
   };
 
   const handleCancel = (booking: BookingWithProduct) => {
@@ -112,7 +134,11 @@ export default function BookingsScreen() {
     const isPast = end < new Date();
 
     return (
-      <View style={[styles.card, isCancelled && styles.cardCancelled]}>
+      <TouchableOpacity
+        style={[styles.card, isCancelled && styles.cardCancelled]}
+        onPress={() => handleBookingPress(item)}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeader}>
           <Text style={[styles.cardTitle, isCancelled && styles.textCancelled]}>
             {item.booking_products?.name || 'Okänt objekt'}
@@ -149,13 +175,16 @@ export default function BookingsScreen() {
           <View style={styles.cardFooter}>
             <TouchableOpacity 
               style={styles.cancelButton}
-              onPress={() => handleCancel(item)}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleCancel(item);
+              }}
             >
               <Text style={styles.cancelButtonText}>Avboka</Text>
             </TouchableOpacity>
           </View>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -242,11 +271,32 @@ export default function BookingsScreen() {
           setShowCreateSheet(false);
           setSelectedProductForSheet(null);
         }}
-        onSuccess={() => {
+        onBooked={(data) => {
+          setShowCreateSheet(false);
+          setSelectedProductForSheet(null);
           loadData();
-          setActiveTab('my_bookings'); // Switch to my bookings after booking
+          // Show confirmation popup after the sheet closes
+          setSelectedBookingData(data);
+          setShowDetailIsConfirmation(true);
+          setShowDetailModal(true);
         }}
         initialProduct={selectedProductForSheet}
+      />
+
+      {/* Confirmation popup (after booking) / Read-only detail (existing booking) */}
+      <BookingConfirmationModal
+        visible={showDetailModal}
+        booking={selectedBookingData}
+        isConfirmation={showDetailIsConfirmation}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedBookingData(null);
+        }}
+        onViewMyBookings={showDetailIsConfirmation ? () => {
+          setShowDetailModal(false);
+          setSelectedBookingData(null);
+          setActiveTab('my_bookings');
+        } : undefined}
       />
     </SafeAreaView>
   );

@@ -92,8 +92,7 @@ export default function MarketplaceScreen() {
   );
 
   const handleItemPress = (item: MarketplaceItem) => {
-    // Navigate to detail screen (to be implemented)
-    console.log('Pressed item:', item.id);
+    router.push({ pathname: `/listing/${item.id}` });
   };
 
   const getIconComponent = (iconName: string | null) => {

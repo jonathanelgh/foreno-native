@@ -9,6 +9,183 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      booking_product_availability: {
+        Row: {
+          id: string
+          product_id: string
+          weekday: number
+          start_time: string
+          end_time: string
+          is_active: boolean
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          weekday: number
+          start_time: string
+          end_time: string
+          is_active?: boolean
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          weekday?: number
+          start_time?: string
+          end_time?: string
+          is_active?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_product_availability_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "booking_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_product_durations: {
+        Row: {
+          id: string
+          product_id: string
+          minutes: number
+          is_active: boolean
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          minutes: number
+          is_active?: boolean
+          sort_order?: number
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          minutes?: number
+          is_active?: boolean
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_product_durations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "booking_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_products: {
+        Row: {
+          id: string
+          organization_id: string | null
+          name: string | null
+          description: string | null
+          info: string | null
+          timezone: string | null
+          is_active: boolean | null
+          image_bucket: string | null
+          image_path: string | null
+          image_file_name: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          organization_id?: string | null
+          name?: string | null
+          description?: string | null
+          info?: string | null
+          timezone?: string | null
+          is_active?: boolean | null
+          image_bucket?: string | null
+          image_path?: string | null
+          image_file_name?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          organization_id?: string | null
+          name?: string | null
+          description?: string | null
+          info?: string | null
+          timezone?: string | null
+          is_active?: boolean | null
+          image_bucket?: string | null
+          image_path?: string | null
+          image_file_name?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_products_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bookings: {
+        Row: {
+          id: string
+          product_id: string
+          membership_id: string
+          start_at: string
+          end_at: string
+          status: string
+          created_at: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_by: string | null
+          notes: string | null
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          membership_id: string
+          start_at: string
+          end_at: string
+          status: string
+          created_at?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_by?: string | null
+          notes?: string | null
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          membership_id?: string
+          start_at?: string
+          end_at?: string
+          status?: string
+          created_at?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_by?: string | null
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "booking_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           category: string | null
@@ -672,30 +849,54 @@ export type Database = {
       }
       user_profiles: {
         Row: {
-          created_at: string | null
-          first_name: string | null
           id: string
+          first_name: string | null
           last_name: string | null
           phone_number: string | null
           profile_image_url: string | null
+          email: string | null
+          personnummer: string | null
+          street_address: string | null
+          postal_code: string | null
+          city: string | null
+          email_notifications: boolean | null
+          sms_notifications: boolean | null
+          push_notifications: boolean | null
+          created_at: string | null
           updated_at: string | null
         }
         Insert: {
-          created_at?: string | null
-          first_name?: string | null
           id: string
+          first_name?: string | null
           last_name?: string | null
           phone_number?: string | null
           profile_image_url?: string | null
+          email?: string | null
+          personnummer?: string | null
+          street_address?: string | null
+          postal_code?: string | null
+          city?: string | null
+          email_notifications?: boolean | null
+          sms_notifications?: boolean | null
+          push_notifications?: boolean | null
+          created_at?: string | null
           updated_at?: string | null
         }
         Update: {
-          created_at?: string | null
-          first_name?: string | null
           id?: string
+          first_name?: string | null
           last_name?: string | null
           phone_number?: string | null
           profile_image_url?: string | null
+          email?: string | null
+          personnummer?: string | null
+          street_address?: string | null
+          postal_code?: string | null
+          city?: string | null
+          email_notifications?: boolean | null
+          sms_notifications?: boolean | null
+          push_notifications?: boolean | null
+          created_at?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -760,6 +961,47 @@ export type Database = {
             columns: ["poll_id"]
             isOneToOne: false
             referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      felanmalningar: {
+        Row: {
+          id: string
+          organization_id: string
+          subject: string
+          text: string
+          status: string
+          created_by: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          subject: string
+          text: string
+          status?: string
+          created_by: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          subject?: string
+          text?: string
+          status?: string
+          created_by?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "felanmalningar_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1019,4 +1261,18 @@ export type ConversationReadState = {
   conversation_type: string
   conversation_id: string
   last_read_at: string
-} 
+}
+
+// Felanmälan types
+export type FelanmalningStatus = 'received' | 'in_progress' | 'completed'
+
+export type Felanmalning = {
+  id: string
+  organization_id: string
+  subject: string
+  text: string
+  status: FelanmalningStatus
+  created_by: string
+  created_at: string | null
+  updated_at: string | null
+}

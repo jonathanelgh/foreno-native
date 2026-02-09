@@ -28,6 +28,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   switchOrganization: (organizationId: string) => Promise<void>;
   refreshMemberships: () => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -288,6 +289,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loadUserData(user.id);
   };
 
+  const refreshUserProfile = async () => {
+    if (!user) return;
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    if (profile) setUserProfile(profile);
+  };
+
   // Get current user's role for the active organization
   const currentMembership = memberships.find(
     m => m.organization_id === activeOrganization?.id
@@ -314,6 +325,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     switchOrganization,
     refreshMemberships,
+    refreshUserProfile,
   };
 
   return (

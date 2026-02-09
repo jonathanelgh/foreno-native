@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,13 +12,14 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CreateContactSheet } from '../../components/CreateContactSheet';
-import { useAuth } from '../../contexts/AuthContext';
-import { getOrganizationContacts } from '../../lib/api/contacts';
-import { Contact } from '../../types/database';
+import { Colors } from '../constants/Colors';
+import { CreateContactSheet } from '../components/CreateContactSheet';
+import { useAuth } from '../contexts/AuthContext';
+import { getOrganizationContacts } from '../lib/api/contacts';
+import { Contact } from '../types/database';
 
 export default function ContactsScreen() {
+  const router = useRouter();
   const { activeOrganization, loading: authLoading, isAdmin } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,64 +81,46 @@ export default function ContactsScreen() {
     setShowCreateSheet(true);
   };
 
-  const getContactDisplayName = (contact: Contact) => {
-    return contact.name;
-  };
-
-  const getContactEmail = (contact: Contact) => {
-    return contact.email;
-  };
-
-  const getContactPhone = (contact: Contact) => {
-    return contact.phone;
-  };
-
-  const renderContactItem = ({ item }: { item: Contact }) => {
-    const displayName = getContactDisplayName(item);
-    const email = getContactEmail(item);
-    const phone = getContactPhone(item);
-
-    return (
-      <View style={styles.contactItem}>
-        <View style={styles.contactHeader}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatarPlaceholder}>
-              <Feather name="user" size={20} color="#6b7280" />
-            </View>
-          </View>
-          <View style={styles.contactInfo}>
-            <Text style={styles.contactName}>{displayName}</Text>
-            {item.description && (
-              <Text style={styles.contactDescription}>{item.description}</Text>
-            )}
+  const renderContactItem = ({ item }: { item: Contact }) => (
+    <View style={styles.contactItem}>
+      <View style={styles.contactHeader}>
+        <View style={styles.avatarContainer}>
+          <View style={styles.avatarPlaceholder}>
+            <Feather name="user" size={20} color="#6b7280" />
           </View>
         </View>
-
-        {(email || phone) && (
-          <View style={styles.contactActions}>
-            {email && (
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => handleEmail(email)}
-              >
-                <Feather name="mail" size={18} color="#3b82f6" />
-                <Text style={styles.actionText}>{email}</Text>
-              </TouchableOpacity>
-            )}
-            {phone && (
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => handleCall(phone)}
-              >
-                <Feather name="phone" size={18} color="#10b981" />
-                <Text style={styles.actionText}>{phone}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+        <View style={styles.contactInfo}>
+          <Text style={styles.contactName}>{item.name}</Text>
+          {item.description && (
+            <Text style={styles.contactDescription}>{item.description}</Text>
+          )}
+        </View>
       </View>
-    );
-  };
+
+      {(item.email || item.phone) && (
+        <View style={styles.contactActions}>
+          {item.email && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleEmail(item.email!)}
+            >
+              <Feather name="mail" size={18} color="#3b82f6" />
+              <Text style={styles.actionText}>{item.email}</Text>
+            </TouchableOpacity>
+          )}
+          {item.phone && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleCall(item.phone!)}
+            >
+              <Feather name="phone" size={18} color="#10b981" />
+              <Text style={styles.actionText}>{item.phone}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  );
 
   const renderContent = () => {
     if (authLoading || loading) {
@@ -188,31 +171,29 @@ export default function ContactsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.push('/(tabs)/profile')}
-          >
-            <Feather name="arrow-left" size={20} color="#2563eb" />
-          </TouchableOpacity>
-          <View style={styles.headerTitles}>
-            <Text style={styles.headerTitle}>Kontakter</Text>
-            {activeOrganization && (
-              <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
-            )}
-          </View>
-        </View>
-        {activeOrganization && isAdmin && (
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={handleCreateContact}
-          >
-            <Text style={styles.createButtonText}>+ Ny</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+    <View style={styles.container}>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Kontakter',
+          headerStyle: { backgroundColor: '#fff' },
+          headerShadowVisible: false,
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
+              <Feather name="chevron-left" size={28} color={Colors.light.tint} />
+            </TouchableOpacity>
+          ),
+          headerRight: () =>
+            activeOrganization && isAdmin ? (
+              <TouchableOpacity onPress={handleCreateContact} style={{ padding: 8 }}>
+                <Feather name="plus" size={24} color={Colors.light.tint} />
+              </TouchableOpacity>
+            ) : null,
+        }}
+      />
 
       <View style={styles.content}>{renderContent()}</View>
 
@@ -223,63 +204,21 @@ export default function ContactsScreen() {
           loadContacts();
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: '#ffffff',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
   },
   backButton: {
-    marginRight: 12,
-    padding: 4,
-  },
-  headerTitles: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  headerSubtitle: {
-    marginTop: 2,
-    fontSize: 14,
-    color: '#64748b',
-  },
-  createButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  createButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginLeft: -8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
@@ -329,7 +268,6 @@ const styles = StyleSheet.create({
   avatarContainer: {
     marginRight: 16,
   },
-
   avatarPlaceholder: {
     width: 48,
     height: 48,
@@ -371,4 +309,4 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginLeft: 12,
   },
-}); 
+});
