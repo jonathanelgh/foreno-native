@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "forenonative",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.foreno.native",
@@ -26,7 +26,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.foreno.native"
+      "package": "com.foreno.app"
     },
     "web": {
       "bundler": "metro",

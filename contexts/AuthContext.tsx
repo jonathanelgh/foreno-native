@@ -1,13 +1,15 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { makeRedirectUri, startAsync } from 'expo-auth-session';
-import * as QueryParams from 'expo-auth-session/build/QueryParams';
-import * as WebBrowser from 'expo-web-browser';
-import Constants from 'expo-constants';
-import { Session, User } from '@supabase/supabase-js';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
-import { MembershipWithOrganization, Organization, UserProfile } from '../types/database';
-import { Platform } from 'react-native';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Session, User } from "@supabase/supabase-js";
+import { makeRedirectUri } from "expo-auth-session";
+import * as QueryParams from "expo-auth-session/build/QueryParams";
+import * as WebBrowser from "expo-web-browser";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+import {
+  MembershipWithOrganization,
+  Organization,
+  UserProfile,
+} from "../types/database";
 
 // Complete the auth session for web browser
 WebBrowser.maybeCompleteAuthSession();
@@ -36,8 +38,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [memberships, setMemberships] = useState<MembershipWithOrganization[]>([]);
-  const [activeOrganization, setActiveOrganization] = useState<Organization | null>(null);
+  const [memberships, setMemberships] = useState<MembershipWithOrganization[]>(
+    [],
+  );
+  const [activeOrganization, setActiveOrganization] =
+    useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,21 +58,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
 
-        if (session?.user) {
-          await loadUserData(session.user.id);
-        } else {
-          setUserProfile(null);
-          setMemberships([]);
-          setActiveOrganization(null);
-          setLoading(false);
-        }
+      if (session?.user) {
+        await loadUserData(session.user.id);
+      } else {
+        setUserProfile(null);
+        setMemberships([]);
+        setActiveOrganization(null);
+        setLoading(false);
       }
-    );
+    });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -78,41 +83,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Load user profile
       const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
+        .from("user_profiles")
+        .select("*")
+        .eq("id", userId)
         .single();
 
       setUserProfile(profile);
 
       // Load memberships with organization data
       const { data: membershipData } = await supabase
-        .from('memberships')
-        .select(`
+        .from("memberships")
+        .select(
+          `
           *,
           organization:organizations(*)
-        `)
-        .eq('user_id', userId)
-        .eq('status', 'active');
+        `,
+        )
+        .eq("user_id", userId)
+        .eq("status", "active");
 
-      const membershipsWithOrg = membershipData?.map(membership => ({
-        ...membership,
-        organization: membership.organization as Organization
-      })) || [];
+      const membershipsWithOrg =
+        membershipData?.map((membership) => ({
+          ...membership,
+          organization: membership.organization as Organization,
+        })) || [];
 
       setMemberships(membershipsWithOrg);
 
       // Load user preferences to get active organization
       const { data: preferences } = await supabase
-        .from('user_preferences')
-        .select('*')
-        .eq('id', userId)
+        .from("user_preferences")
+        .select("*")
+        .eq("id", userId)
         .single();
 
       // Set active organization
       if (preferences?.active_organization_id) {
         const activeOrg = membershipsWithOrg.find(
-          m => m.organization_id === preferences.active_organization_id
+          (m) => m.organization_id === preferences.active_organization_id,
         )?.organization;
         if (activeOrg) {
           setActiveOrganization(activeOrg);
@@ -124,16 +132,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Set first organization as active if no preference
         setActiveOrganization(membershipsWithOrg[0].organization);
         // Save this preference
-        await supabase
-          .from('user_preferences')
-          .upsert({
-            id: userId,
-            active_organization_id: membershipsWithOrg[0].organization_id,
-          });
+        await supabase.from("user_preferences").upsert({
+          id: userId,
+          active_organization_id: membershipsWithOrg[0].organization_id,
+        });
       }
-
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error("Error loading user data:", error);
     } finally {
       setLoading(false);
     }
@@ -157,14 +162,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { access_token, refresh_token } = params;
 
     if (!access_token) {
-      throw new Error('No access token found in callback URL');
+      throw new Error("No access token found in callback URL");
     }
 
     const { data, error } = await supabase.auth.setSession({
       access_token,
       refresh_token,
     });
-    
+
     if (error) throw error;
     return data.session;
   };
@@ -172,17 +177,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async () => {
     try {
       const redirectTo = makeRedirectUri({
-        useProxy: Platform.OS !== 'web' && __DEV__,
-        native: 'forenonative://auth',
+        native: "forenonative://auth",
       });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider: "google",
         options: {
           redirectTo,
           skipBrowserRedirect: true,
           queryParams: {
-            prompt: 'select_account',
+            prompt: "select_account",
           },
         },
       });
@@ -192,37 +196,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!data?.url) {
-        throw new Error('Ingen inloggningslänk mottogs från Supabase');
+        throw new Error("Ingen inloggningslänk mottogs från Supabase");
       }
 
-      const authResult = await startAsync({ authUrl: data.url, returnUrl: redirectTo });
+      const authResult = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectTo,
+      );
 
-      if (authResult.type !== 'success') {
-        if (authResult.type === 'dismiss' || authResult.type === 'cancel') {
+      if (authResult.type !== "success") {
+        if (authResult.type === "dismiss" || authResult.type === "cancel") {
           return;
         }
         throw new Error(`OAuth misslyckades med typ: ${authResult.type}`);
       }
 
-      const responseUrl = authResult.url ?? '';
-      const codeFromParams = authResult.params?.code as string | undefined;
+      const responseUrl = authResult.url ?? "";
+
+      // Parse params from the response URL manually for WebBrowser result
+      const parsedResponseUrl = new URL(responseUrl);
+      const queryParams = Object.fromEntries(
+        parsedResponseUrl.searchParams.entries(),
+      );
+      const hashParams = parsedResponseUrl.hash
+        ? Object.fromEntries(
+            new URLSearchParams(
+              parsedResponseUrl.hash.replace(/^#/, ""),
+            ).entries(),
+          )
+        : {};
+
+      const allParams = { ...queryParams, ...hashParams };
+      const codeFromParams = allParams.code as string | undefined;
 
       let urlCode: string | null = null;
       try {
         const parsedUrl = new URL(responseUrl);
-        urlCode = parsedUrl.searchParams.get('code');
+        urlCode = parsedUrl.searchParams.get("code");
         if (!urlCode && parsedUrl.hash) {
-          const hashParams = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
-          urlCode = hashParams.get('code');
+          const hashParams = new URLSearchParams(
+            parsedUrl.hash.replace(/^#/, ""),
+          );
+          urlCode = hashParams.get("code");
         }
       } catch (parseError) {
-        console.warn('Kunde inte parsa OAuth-responsens URL:', parseError);
+        console.warn("Kunde inte parsa OAuth-responsens URL:", parseError);
       }
 
       const code = codeFromParams || urlCode;
 
       if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        const { error: exchangeError } =
+          await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) {
           throw exchangeError;
         }
@@ -232,7 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Fallback: attempt to create session from URL fragments (legacy flow)
       await createSessionFromUrl(responseUrl);
     } catch (error: any) {
-      console.error('Google sign-in error:', error);
+      console.error("Google sign-in error:", error);
       throw error;
     }
   };
@@ -241,24 +266,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Clear specific keys instead of all AsyncStorage
       const keys = await AsyncStorage.getAllKeys();
-      const supabaseKeys = keys.filter(key => 
-        key.includes('supabase') || 
-        key.includes('auth') ||
-        key.includes('session')
+      const supabaseKeys = keys.filter(
+        (key) =>
+          key.includes("supabase") ||
+          key.includes("auth") ||
+          key.includes("session"),
       );
-      
+
       if (supabaseKeys.length > 0) {
         await AsyncStorage.multiRemove(supabaseKeys);
       }
-      
+
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('Supabase signOut error:', error);
+        console.error("Supabase signOut error:", error);
         // Even if Supabase signOut fails, we've cleared local storage
         // so the user will be logged out locally
       }
     } catch (error) {
-      console.error('Error during sign out:', error);
+      console.error("Error during sign out:", error);
       // Don't throw - we want to log out locally even if there's an error
     }
   };
@@ -267,19 +293,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     const newActiveOrg = memberships.find(
-      m => m.organization_id === organizationId
+      (m) => m.organization_id === organizationId,
     )?.organization;
 
     if (newActiveOrg) {
       setActiveOrganization(newActiveOrg);
 
       // Save preference
-      await supabase
-        .from('user_preferences')
-        .upsert({
-          id: user.id,
-          active_organization_id: organizationId,
-        });
+      await supabase.from("user_preferences").upsert({
+        id: user.id,
+        active_organization_id: organizationId,
+      });
     }
   };
 
@@ -290,13 +314,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Get current user's role for the active organization
   const currentMembership = memberships.find(
-    m => m.organization_id === activeOrganization?.id
+    (m) => m.organization_id === activeOrganization?.id,
   );
-  
+
   const userRole = currentMembership?.role || null;
-  const isAdmin = userRole === 'admin';
-  const isStyrelse = userRole === 'styrelse';
-  const isMedlem = userRole === 'medlem';
+  const isAdmin = userRole === "admin";
+  const isStyrelse = userRole === "styrelse";
+  const isMedlem = userRole === "medlem";
 
   const value: AuthContextType = {
     session,
@@ -316,17 +340,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshMemberships,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-} 
+}
