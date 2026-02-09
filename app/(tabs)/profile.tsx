@@ -310,29 +310,31 @@ export default function ProfileScreen() {
           <Feather name="chevron-right" size={18} color="#9ca3af" />
         </TouchableOpacity>
 
-        <View style={styles.settingItem}>
+        <View style={[styles.settingItem, { overflow: 'hidden' }]}>
           <View style={styles.settingItemLeft}>
             <Feather name="bell" size={20} color="#1f2937" />
             <Text style={styles.settingItemText}>Pushnotiser</Text>
           </View>
-          <Switch
-            value={pushNotifications}
-            onValueChange={async (value) => {
-              setPushNotifications(value);
-              if (user?.id) {
-                const { error } = await supabase
-                  .from('user_profiles')
-                  .update({ push_notifications: value })
-                  .eq('id', user.id);
-                if (error) {
-                  console.error('Error updating push notifications:', error);
-                  setPushNotifications(!value); // revert on failure
+          <View style={{ flexShrink: 0 }}>
+            <Switch
+              value={pushNotifications}
+              onValueChange={async (value) => {
+                setPushNotifications(value);
+                if (user?.id) {
+                  const { error } = await supabase
+                    .from('user_profiles')
+                    .update({ push_notifications: value })
+                    .eq('id', user.id);
+                  if (error) {
+                    console.error('Error updating push notifications:', error);
+                    setPushNotifications(!value); // revert on failure
+                  }
                 }
-              }
-            }}
-            trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
-            thumbColor={pushNotifications ? '#2563eb' : '#f3f4f6'}
-          />
+              }}
+              trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+              thumbColor={pushNotifications ? '#2563eb' : '#f3f4f6'}
+            />
+          </View>
         </View>
       </View>
 
@@ -652,6 +654,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
   },
   settingItemText: {
     fontSize: 16,
