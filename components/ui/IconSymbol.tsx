@@ -22,6 +22,9 @@ const MAPPING = {
   'person.2.fill': 'users',
   'folder.fill': 'folder',
   'person.fill': 'user',
+  'bag.fill': 'shopping-bag',
+  'magnifyingglass': 'search',
+  'xmark': 'x',
 } as IconMapping;
 
 /**

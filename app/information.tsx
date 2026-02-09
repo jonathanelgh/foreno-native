@@ -8,14 +8,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CreateUtskickSheet } from '../../components/CreateUtskickSheet';
-import { UtskickCard } from '../../components/UtskickCard';
-import { UtskickDetailModal } from '../../components/UtskickDetailModal';
-import { useAuth } from '../../contexts/AuthContext';
-import { getUtskickFeed } from '../../lib/api/utskick';
+import { Stack, useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
+import { Colors } from '../constants/Colors';
+import { CreateUtskickSheet } from '../components/CreateUtskickSheet';
+import { UtskickCard } from '../components/UtskickCard';
+import { UtskickDetailModal } from '../components/UtskickDetailModal';
+import { useAuth } from '../contexts/AuthContext';
+import { getUtskickFeed } from '../lib/api/utskick';
 
-export default function NewsScreen() {
+export default function InformationScreen() {
+  const router = useRouter();
   const { activeOrganization, isAdmin, isStyrelse } = useAuth();
   const [utskick, setUtskick] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,23 +137,28 @@ export default function NewsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.headerContainer}>
-        <View style={styles.headerTitles}>
-          <Text style={styles.headerTitle}>Information</Text>
-          {activeOrganization && (
-            <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
-          )}
-        </View>
-        {(isAdmin || isStyrelse) && (
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={handleCreateUtskick}
-          >
-            <Text style={styles.createButtonText}>+ Nytt</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+    <View style={styles.safeArea}>
+      <Stack.Screen
+        options={{
+          title: 'Information',
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{ paddingHorizontal: 8, paddingVertical: 4, marginLeft: -8, justifyContent: 'center', alignItems: 'center' }}
+            >
+              <Feather name="chevron-left" size={28} color={Colors.light.tint} />
+            </TouchableOpacity>
+          ),
+          headerRight: (isAdmin || isStyrelse) ? () => (
+            <TouchableOpacity
+              style={styles.createButton}
+              onPress={handleCreateUtskick}
+            >
+              <Text style={styles.createButtonText}>+ Nytt</Text>
+            </TouchableOpacity>
+          ) : undefined,
+        }}
+      />
 
       <View style={styles.content}>{renderContent()}</View>
 
@@ -170,7 +178,7 @@ export default function NewsScreen() {
           setSelectedUtskick(null);
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -178,30 +186,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#ffffff',
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  headerTitles: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  headerSubtitle: {
-    marginTop: 2,
-    fontSize: 14,
-    color: '#64748b',
   },
   createButton: {
     backgroundColor: '#2563eb',

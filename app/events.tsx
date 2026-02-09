@@ -9,16 +9,19 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CreateEventSheet } from '../../components/CreateEventSheet';
-import { EventDetailModal } from '../../components/EventDetailModal';
-import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
-import { Event } from '../../types/database';
+import { Feather } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
+import { Colors } from '../constants/Colors';
+import { CreateEventSheet } from '../components/CreateEventSheet';
+import { EventDetailModal } from '../components/EventDetailModal';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+import { Event } from '../types/database';
 
 type FilterType = 'kommande' | 'tidigare' | 'alla';
 
 export default function EventsScreen() {
+  const router = useRouter();
   const { activeOrganization, isAdmin, isStyrelse } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -260,44 +263,56 @@ export default function EventsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.headerContainer}>
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerTitles}>
-            <Text style={styles.headerTitle}>Kalender</Text>
-            {activeOrganization && (
-              <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
-            )}
-          </View>
-          {(isAdmin || isStyrelse) && (
+    <View style={styles.safeArea}>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Kalender',
+          headerStyle: { backgroundColor: '#fff' },
+          headerShadowVisible: false,
+          headerLeft: () => (
             <TouchableOpacity
-              style={styles.createButton}
-              onPress={handleCreateEvent}
+              onPress={() => router.back()}
+              style={{
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                marginLeft: -8,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
             >
-              <Text style={styles.createButtonText}>+ Ny</Text>
+              <Feather name="chevron-left" size={28} color={Colors.light.tint} />
             </TouchableOpacity>
-          )}
-        </View>
-        <View style={[styles.headerFilters, (isAdmin || isStyrelse) && styles.headerFiltersWithAction]}>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === 'kommande' && styles.filterButtonActive]}
-            onPress={() => setFilter('kommande')}
-          >
-            <Text style={[styles.filterButtonText, filter === 'kommande' && styles.filterButtonTextActive]}>Kommande</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === 'tidigare' && styles.filterButtonActive]}
-            onPress={() => setFilter('tidigare')}
-          >
-            <Text style={[styles.filterButtonText, filter === 'tidigare' && styles.filterButtonTextActive]}>Tidigare</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === 'alla' && styles.filterButtonActive]}
-            onPress={() => setFilter('alla')}
-          >
-            <Text style={[styles.filterButtonText, filter === 'alla' && styles.filterButtonTextActive]}>Alla</Text>
-          </TouchableOpacity>
-        </View>
+          ),
+          headerRight: () =>
+            (isAdmin || isStyrelse) ? (
+              <TouchableOpacity onPress={handleCreateEvent} style={{ padding: 8 }}>
+                <Feather name="plus" size={24} color={Colors.light.tint} />
+              </TouchableOpacity>
+            ) : null,
+        }}
+      />
+
+      {/* Filter tabs */}
+      <View style={styles.headerFilters}>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'kommande' && styles.filterButtonActive]}
+          onPress={() => setFilter('kommande')}
+        >
+          <Text style={[styles.filterButtonText, filter === 'kommande' && styles.filterButtonTextActive]}>Kommande</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'tidigare' && styles.filterButtonActive]}
+          onPress={() => setFilter('tidigare')}
+        >
+          <Text style={[styles.filterButtonText, filter === 'tidigare' && styles.filterButtonTextActive]}>Tidigare</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'alla' && styles.filterButtonActive]}
+          onPress={() => setFilter('alla')}
+        >
+          <Text style={[styles.filterButtonText, filter === 'alla' && styles.filterButtonTextActive]}>Alla</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.content}>{renderContent()}</View>
@@ -315,7 +330,7 @@ export default function EventsScreen() {
           loadEvents();
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -324,39 +339,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
-  headerContainer: {
+  headerFilters: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 0,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 0,
-  },
-  headerTitles: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  headerSubtitle: {
-    marginTop: 2,
-    fontSize: 14,
-    color: '#64748b',
-  },
-  headerFilters: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 20,
-    marginTop: 8,
-    paddingBottom: 0,
   },
   filterButton: {
     flex: 1,
@@ -376,25 +365,6 @@ const styles = StyleSheet.create({
   },
   filterButtonTextActive: {
     color: '#2563eb',
-  },
-  createButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  createButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  headerActionContainer: {
-    marginLeft: 16,
   },
   content: {
     flex: 1,
@@ -524,37 +494,5 @@ const styles = StyleSheet.create({
     color: '#374151',
     lineHeight: 18,
     marginBottom: 12,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    paddingTop: 50, // Add space for status bar
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#64748b',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: '#64748b',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#9ca3af',
-    textAlign: 'center',
-  },
-  headerFiltersWithAction: {
-    marginTop: 8,
   },
 });

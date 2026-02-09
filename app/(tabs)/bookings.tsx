@@ -1,5 +1,4 @@
 import { Feather } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,19 +11,19 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CreateBookingSheet } from '../components/CreateBookingSheet';
-import { ProductImage } from '../components/ProductImage';
-import { useAuth } from '../contexts/AuthContext';
+import { BookingConfirmationModal, BookingConfirmationData } from '../../components/BookingConfirmationModal';
+import { CreateBookingSheet } from '../../components/CreateBookingSheet';
+import { ProductImage } from '../../components/ProductImage';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   BookingWithProduct, 
   BookingProductWithDetails,
   cancelBooking, 
   getUserBookings, 
   getBookingProducts 
-} from '../lib/api/bookings';
+} from '../../lib/api/bookings';
 
 export default function BookingsScreen() {
-  const router = useRouter();
   const { user, activeOrganization } = useAuth();
   const [activeTab, setActiveTab] = useState<'book' | 'my_bookings'>('book');
   const [bookings, setBookings] = useState<BookingWithProduct[]>([]);
@@ -33,6 +32,11 @@ export default function BookingsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [selectedProductForSheet, setSelectedProductForSheet] = useState<BookingProductWithDetails | null>(null);
+
+  // Detail / confirmation modal state
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedBookingData, setSelectedBookingData] = useState<BookingConfirmationData | null>(null);
+  const [showDetailIsConfirmation, setShowDetailIsConfirmation] = useState(false);
 
   const loadData = async () => {
     if (!user || !activeOrganization) return;
@@ -64,6 +68,22 @@ export default function BookingsScreen() {
   const handleProductPress = (product: BookingProductWithDetails) => {
     setSelectedProductForSheet(product);
     setShowCreateSheet(true);
+  };
+
+  const handleBookingPress = (booking: BookingWithProduct) => {
+    const start = new Date(booking.start_at);
+    const end = new Date(booking.end_at);
+    const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60_000);
+
+    setSelectedBookingData({
+      productName: booking.booking_products?.name || 'Okänt objekt',
+      productInfo: booking.booking_products?.info || null,
+      startAt: start,
+      endAt: end,
+      durationMinutes,
+    });
+    setShowDetailIsConfirmation(false);
+    setShowDetailModal(true);
   };
 
   const handleCancel = (booking: BookingWithProduct) => {
@@ -112,7 +132,11 @@ export default function BookingsScreen() {
     const isPast = end < new Date();
 
     return (
-      <View style={[styles.card, isCancelled && styles.cardCancelled]}>
+      <TouchableOpacity
+        style={[styles.card, isCancelled && styles.cardCancelled]}
+        onPress={() => handleBookingPress(item)}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeader}>
           <Text style={[styles.cardTitle, isCancelled && styles.textCancelled]}>
             {item.booking_products?.name || 'Okänt objekt'}
@@ -149,32 +173,28 @@ export default function BookingsScreen() {
           <View style={styles.cardFooter}>
             <TouchableOpacity 
               style={styles.cancelButton}
-              onPress={() => handleCancel(item)}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleCancel(item);
+              }}
             >
               <Text style={styles.cancelButtonText}>Avboka</Text>
             </TouchableOpacity>
           </View>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
-      
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Feather name="arrow-left" size={20} color="#2563eb" />
-          </TouchableOpacity>
-          <View style={styles.headerTitles}>
-            <Text style={styles.headerTitle}>Bokning</Text>
-            {activeOrganization && (
-              <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
-            )}
-          </View>
+        <View style={styles.headerTitles}>
+          <Text style={styles.headerTitle}>Bokningar</Text>
+          {activeOrganization && (
+            <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
+          )}
         </View>
       </View>
 
@@ -242,11 +262,32 @@ export default function BookingsScreen() {
           setShowCreateSheet(false);
           setSelectedProductForSheet(null);
         }}
-        onSuccess={() => {
+        onBooked={(data) => {
+          setShowCreateSheet(false);
+          setSelectedProductForSheet(null);
           loadData();
-          setActiveTab('my_bookings'); // Switch to my bookings after booking
+          // Show confirmation popup after the sheet closes
+          setSelectedBookingData(data);
+          setShowDetailIsConfirmation(true);
+          setShowDetailModal(true);
         }}
         initialProduct={selectedProductForSheet}
+      />
+
+      {/* Confirmation popup (after booking) / Read-only detail (existing booking) */}
+      <BookingConfirmationModal
+        visible={showDetailModal}
+        booking={selectedBookingData}
+        isConfirmation={showDetailIsConfirmation}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedBookingData(null);
+        }}
+        onViewMyBookings={showDetailIsConfirmation ? () => {
+          setShowDetailModal(false);
+          setSelectedBookingData(null);
+          setActiveTab('my_bookings');
+        } : undefined}
       />
     </SafeAreaView>
   );
@@ -268,19 +309,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
   content: {
     flex: 1,
     backgroundColor: '#f8fafc',
     paddingTop: 8,
-  },
-  backButton: {
-    marginRight: 12,
-    padding: 4,
   },
   headerTitles: {
     flex: 1,

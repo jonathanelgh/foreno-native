@@ -6,6 +6,8 @@ export interface MarketplaceCategory {
   parent_id: string | null;
 }
 
+export type ListingStatus = 'published' | 'sold' | 'expired' | 'hidden';
+
 export interface MarketplaceItem {
   id: string;
   title: string;
@@ -18,8 +20,12 @@ export interface MarketplaceItem {
   created_by: string;
   organization_id: string;
   transaction_type: 'buy' | 'sell' | 'give';
+  status: ListingStatus;
+  county_id?: string | null;
+  municipality_id?: string | null;
+  expires_at?: string;
   images?: { path: string; bucket: string }[];
-  listing_images?: { path: string; bucket: string }[]; // For join query
+  listing_images?: { path: string; bucket: string; sort_order?: number }[]; // For join query
 }
 
 export interface MarketplaceFilters {

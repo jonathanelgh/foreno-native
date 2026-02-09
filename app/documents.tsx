@@ -13,13 +13,14 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
-import { getOrganizationDocuments, getOrganizationFolders, getDocumentUrl, createFolder, createDocument, deleteDocument, deleteFolder, moveDocument, moveFolder, Folder } from '../../lib/api/documents';
-import { useAuth } from '../../contexts/AuthContext';
-import { Document } from '../../types/database';
-import { uploadDocument, getMimeTypeFromFileName } from '../../lib/storage';
-import { DocumentPreviewModal } from '../../components/DocumentPreviewModal';
+import { Colors } from '../constants/Colors';
+import { getOrganizationDocuments, getOrganizationFolders, getDocumentUrl, createFolder, createDocument, deleteDocument, deleteFolder, moveDocument, moveFolder, Folder } from '../lib/api/documents';
+import { useAuth } from '../contexts/AuthContext';
+import { Document } from '../types/database';
+import { uploadDocument, getMimeTypeFromFileName } from '../lib/storage';
+import { DocumentPreviewModal } from '../components/DocumentPreviewModal';
 
 type FolderItem = {
   type: 'folder';
@@ -38,6 +39,7 @@ type FileItem = {
 type ListItem = FolderItem | FileItem;
 
 export default function DocumentsScreen() {
+  const navRouter = useRouter();
   const { activeOrganization, loading: authLoading, isAdmin, isStyrelse, user, userRole } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -621,23 +623,32 @@ export default function DocumentsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          {currentFolderId && (
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={handleBackPress}
+    <View style={styles.safeArea}>
+      <Stack.Screen
+        options={{
+          title: 'Dokument',
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => {
+                if (currentFolderId) {
+                  handleBackPress();
+                } else {
+                  navRouter.back();
+                }
+              }}
+              style={{ paddingHorizontal: 8, paddingVertical: 4, marginLeft: -8, justifyContent: 'center', alignItems: 'center' }}
             >
-              <Feather name="arrow-left" size={20} color="#2563eb" />
+              <Feather name="chevron-left" size={28} color={Colors.light.tint} />
             </TouchableOpacity>
-          )}
-          <View style={styles.headerTitles}>
-            <Text style={styles.headerTitle}>Dokument</Text>
-            {renderBreadcrumbs()}
-          </View>
+          ),
+        }}
+      />
+      {/* Breadcrumbs below header */}
+      {currentFolderId && (
+        <View style={styles.breadcrumbBar}>
+          {renderBreadcrumbs()}
         </View>
-      </View>
+      )}
 
       <View style={styles.content}>{renderContent()}</View>
 
@@ -840,7 +851,7 @@ export default function DocumentsScreen() {
           setPreviewDocument(null);
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -848,6 +859,13 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+  breadcrumbBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f9fafb',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
   header: {
     backgroundColor: '#ffffff',

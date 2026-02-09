@@ -89,9 +89,14 @@ export const getMeetingNotes = async (eventId: string) => {
 export const getEventAttendanceWithMembers = async (eventId: string, organizationId: string) => {
   console.log('Fetching attendance for event:', eventId);
   
-  // First get all organization members
+  // Fetch active members with their profiles using a direct query
+  // (accessible to all authenticated members, unlike the admin-only RPC)
   const { data: members, error: membersError } = await supabase
-    .rpc('get_organization_members', { org_id: organizationId });
+    .from('memberships')
+    .select('user_id, role, board_title, user_profiles:user_id(first_name, last_name)')
+    .eq('organization_id', organizationId)
+    .eq('status', 'active')
+    .not('user_id', 'is', null);
 
   if (membersError) {
     console.error('Error fetching organization members:', membersError);
@@ -115,10 +120,7 @@ export const getEventAttendanceWithMembers = async (eventId: string, organizatio
   });
 
   const result = (members || []).map((member: any) => {
-    const userProfiles = typeof member.user_profiles === 'string' 
-      ? JSON.parse(member.user_profiles) 
-      : member.user_profiles;
-    
+    const userProfiles = member.user_profiles;
     const attendanceRecord = attendanceMap.get(member.user_id);
     
     return {

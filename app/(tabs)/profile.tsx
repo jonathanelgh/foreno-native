@@ -1,7 +1,7 @@
 import { Avatar } from '../../components/Avatar';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -11,6 +11,7 @@ import {
     StyleSheet,
     Switch,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -31,6 +32,22 @@ export default function ProfileScreen() {
   const [showOrgModal, setShowOrgModal] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [pushNotifications, setPushNotifications] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const activeMembership = memberships.find(
+    (m) => m.organization_id === activeOrganization?.id
+  );
+  const isAdminOrStyrelse =
+    activeMembership?.role === 'admin' || activeMembership?.role === 'styrelse';
+
+  // Sync push notifications toggle with DB value
+  useEffect(() => {
+    if (userProfile) {
+      setPushNotifications(userProfile.push_notifications !== false);
+    }
+  }, [userProfile]);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -69,6 +86,29 @@ export default function ProfileScreen() {
       Alert.alert('Fel', 'Kunde inte byta organisation');
     } finally {
       setSwitching(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'Radera konto') return;
+
+    setDeleting(true);
+    try {
+      const { error } = await supabase.rpc('delete_own_account');
+      if (error) {
+        console.error('Delete account error:', error);
+        Alert.alert('Fel', 'Kunde inte radera kontot. Försök igen senare.');
+        return;
+      }
+
+      setShowDeleteModal(false);
+      await signOut();
+      router.replace('/login');
+    } catch (err) {
+      console.error('Delete account error:', err);
+      Alert.alert('Fel', 'Ett oväntat fel uppstod.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -140,7 +180,27 @@ export default function ProfileScreen() {
         <View style={styles.menuGrid}>
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => router.push('/(tabs)/contacts')}
+            onPress={() => router.push('/information')}
+          >
+            <View style={styles.menuItemContainer}>
+              <Feather name="info" size={22} color="#2563eb" />
+              <Text style={styles.menuItemText}>Information</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/documents')}
+          >
+            <View style={styles.menuItemContainer}>
+              <Feather name="folder" size={22} color="#2563eb" />
+              <Text style={styles.menuItemText}>Dokument</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/contacts')}
           >
             <View style={styles.menuItemContainer}>
               <Feather name="users" size={22} color="#2563eb" />
@@ -150,7 +210,7 @@ export default function ProfileScreen() {
 
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => Alert.alert('Info', 'Medlemmar kommer snart')}
+            onPress={() => router.push('/members')}
           >
             <View style={styles.menuItemContainer}>
               <Feather name="user" size={22} color="#2563eb" />
@@ -160,37 +220,11 @@ export default function ProfileScreen() {
 
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => router.push('/(tabs)/events')}
+            onPress={() => router.push('/events')}
           >
             <View style={styles.menuItemContainer}>
               <Feather name="calendar" size={22} color="#2563eb" />
-              <View style={styles.menuItemTextContainer}>
-                <Text style={styles.menuItemText}>Kalender</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => router.push('/bookings')}
-          >
-            <View style={styles.menuItemContainer}>
-              <Feather name="calendar" size={22} color="#2563eb" />
-              <View style={styles.menuItemTextContainer}>
-                <Text style={styles.menuItemText}>Bokning</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => router.push('/marketplace')}
-          >
-            <View style={styles.menuItemContainer}>
-              <Feather name="shopping-bag" size={22} color="#2563eb" />
-              <View style={styles.menuItemTextContainer}>
-                <Text style={styles.menuItemText}>Köp & sälj</Text>
-              </View>
+              <Text style={styles.menuItemText}>Kalender</Text>
             </View>
           </TouchableOpacity>
 
@@ -206,14 +240,11 @@ export default function ProfileScreen() {
 
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => Alert.alert('Info', 'Felanmälan kommer snart')}
+            onPress={() => router.push('/felanmalningar')}
           >
             <View style={styles.menuItemContainer}>
               <Feather name="alert-triangle" size={22} color="#2563eb" />
-              <View style={styles.menuItemTextContainer}>
-                <Text style={styles.menuItemText}>Felanmälan</Text>
-                <Text style={styles.menuItemComingSoon}>(kommer snart)</Text>
-              </View>
+              <Text style={styles.menuItemText}>Felanmälan</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -222,6 +253,30 @@ export default function ProfileScreen() {
       {/* Settings Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Inställningar</Text>
+
+        <TouchableOpacity 
+          style={styles.settingItem}
+          onPress={() => router.push('/my-details')}
+        >
+          <View style={styles.settingItemLeft}>
+            <Feather name="edit-3" size={20} color="#1f2937" />
+            <Text style={styles.settingItemText}>Mina uppgifter</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color="#9ca3af" />
+        </TouchableOpacity>
+
+        {isAdminOrStyrelse && (
+          <TouchableOpacity 
+            style={styles.settingItem}
+            onPress={() => Linking.openURL('https://foreno.se/dashboard/settings')}
+          >
+            <View style={styles.settingItemLeft}>
+              <Feather name="settings" size={20} color="#1f2937" />
+              <Text style={styles.settingItemText}>Organisationsinställningar</Text>
+            </View>
+            <Feather name="external-link" size={18} color="#9ca3af" />
+          </TouchableOpacity>
+        )}
         
         <TouchableOpacity 
           style={styles.settingItem}
@@ -246,7 +301,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity 
           style={styles.settingItem}
-          onPress={() => Alert.alert('Info', 'Support kommer snart')}
+          onPress={() => router.push('/support')}
         >
           <View style={styles.settingItemLeft}>
             <Feather name="help-circle" size={20} color="#1f2937" />
@@ -255,17 +310,31 @@ export default function ProfileScreen() {
           <Feather name="chevron-right" size={18} color="#9ca3af" />
         </TouchableOpacity>
 
-        <View style={styles.settingItem}>
+        <View style={[styles.settingItem, { overflow: 'hidden' }]}>
           <View style={styles.settingItemLeft}>
             <Feather name="bell" size={20} color="#1f2937" />
             <Text style={styles.settingItemText}>Pushnotiser</Text>
           </View>
-          <Switch
-            value={pushNotifications}
-            onValueChange={setPushNotifications}
-            trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
-            thumbColor={pushNotifications ? '#2563eb' : '#f3f4f6'}
-          />
+          <View style={{ flexShrink: 0 }}>
+            <Switch
+              value={pushNotifications}
+              onValueChange={async (value) => {
+                setPushNotifications(value);
+                if (user?.id) {
+                  const { error } = await supabase
+                    .from('user_profiles')
+                    .update({ push_notifications: value })
+                    .eq('id', user.id);
+                  if (error) {
+                    console.error('Error updating push notifications:', error);
+                    setPushNotifications(!value); // revert on failure
+                  }
+                }
+              }}
+              trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+              thumbColor={pushNotifications ? '#2563eb' : '#f3f4f6'}
+            />
+          </View>
         </View>
       </View>
 
@@ -300,7 +369,74 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
           <Text style={styles.signOutButtonText}>Logga ut</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.deleteAccountButton}
+          onPress={() => {
+            setDeleteConfirmText('');
+            setShowDeleteModal(true);
+          }}
+        >
+          <Text style={styles.deleteAccountButtonText}>Radera konto</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.deleteOverlay}>
+          <View style={styles.deletePopup}>
+            <View style={styles.deleteHeader}>
+              <Feather name="alert-triangle" size={24} color="#dc2626" />
+              <Text style={styles.deleteTitle}>Radera konto</Text>
+            </View>
+
+            <Text style={styles.deleteMessage}>
+              Detta kommer att permanent radera ditt konto och all tillhörande data. Denna åtgärd kan inte ångras.
+            </Text>
+
+            <Text style={styles.deleteInstructions}>
+              Skriv <Text style={styles.deleteBold}>Radera konto</Text> nedan för att bekräfta:
+            </Text>
+
+            <TextInput
+              style={styles.deleteInput}
+              value={deleteConfirmText}
+              onChangeText={setDeleteConfirmText}
+              placeholder="Radera konto"
+              placeholderTextColor="#d1d5db"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <View style={styles.deleteFooter}>
+              <TouchableOpacity
+                style={styles.deleteCancelBtn}
+                onPress={() => setShowDeleteModal(false)}
+              >
+                <Text style={styles.deleteCancelText}>Avbryt</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.deleteConfirmBtn,
+                  (deleteConfirmText !== 'Radera konto' || deleting) && styles.deleteConfirmBtnDisabled,
+                ]}
+                onPress={handleDeleteAccount}
+                disabled={deleteConfirmText !== 'Radera konto' || deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.deleteConfirmText}>Radera</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Organization Selection Modal */}
       <Modal
@@ -518,6 +654,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
   },
   settingItemText: {
     fontSize: 16,
@@ -530,12 +667,110 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 8,
   },
   signOutButtonText: {
     color: '#64748b',
     fontSize: 16,
     fontWeight: '500',
+  },
+  deleteAccountButton: {
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  deleteAccountButtonText: {
+    color: '#dc2626',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  deleteOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  deletePopup: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  deleteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  deleteTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#dc2626',
+  },
+  deleteMessage: {
+    fontSize: 15,
+    color: '#4b5563',
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+  deleteInstructions: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 10,
+  },
+  deleteBold: {
+    fontWeight: '700',
+    color: '#1f2937',
+  },
+  deleteInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    color: '#1f2937',
+    backgroundColor: '#f9fafb',
+    marginBottom: 20,
+  },
+  deleteFooter: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  deleteCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+  },
+  deleteCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4b5563',
+  },
+  deleteConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#dc2626',
+    alignItems: 'center',
+  },
+  deleteConfirmBtnDisabled: {
+    backgroundColor: '#fca5a5',
+  },
+  deleteConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   modalContainer: {
     flex: 1,

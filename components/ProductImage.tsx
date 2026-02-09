@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Image, ImageStyle, StyleProp, View, ViewStyle, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import React, { useEffect, useState, useRef } from 'react';
+import { Image, ImageStyle, StyleProp, View, ViewStyle, StyleSheet, Animated } from 'react-native';
 import { supabase } from '../lib/supabase';
 
 interface ProductImageProps {
@@ -8,16 +7,31 @@ interface ProductImageProps {
   bucket?: string | null;
   style?: StyleProp<ImageStyle>;
   containerStyle?: StyleProp<ViewStyle>;
+  resizeMode?: 'cover' | 'contain' | 'stretch' | 'center';
 }
 
 export function ProductImage({ 
   path, 
-  bucket = 'booking_products', // Default bucket if any? Or rely on prop
+  bucket = 'booking_products',
   style, 
-  containerStyle 
+  containerStyle,
+  resizeMode = 'cover',
 }: ProductImageProps) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.timing(shimmerAnim, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: false,
+      })
+    );
+    anim.start();
+    return () => anim.stop();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -25,17 +39,19 @@ export function ProductImage({
     const loadUrl = async () => {
       if (!path) {
         setImageSrc(null);
+        setLoading(false);
         return;
       }
 
       if (path.startsWith('http')) {
         setImageSrc(path);
+        setLoading(false);
         return;
       }
 
       setLoading(true);
       try {
-        const bucketName = bucket || 'booking_products'; // Fallback
+        const bucketName = bucket || 'booking_products';
         const { data, error } = await supabase.storage
           .from(bucketName)
           .createSignedUrl(path, 3600);
@@ -65,14 +81,19 @@ export function ProductImage({
       <Image
         source={{ uri: imageSrc }}
         style={[styles.image, style]}
+        resizeMode={resizeMode}
       />
     );
   }
 
+  // Shimmer placeholder while loading
+  const bgColor = shimmerAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['#e5e7eb', '#f3f4f6', '#e5e7eb'],
+  });
+
   return (
-    <View style={[styles.placeholder, containerStyle]}>
-      <Feather name="calendar" size={24} color="#2563eb" />
-    </View>
+    <Animated.View style={[styles.placeholder, containerStyle, style, { backgroundColor: bgColor }]} />
   );
 }
 
@@ -86,8 +107,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 8,
-    backgroundColor: '#eff6ff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#e5e7eb',
   },
 });

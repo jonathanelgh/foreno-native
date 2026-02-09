@@ -266,18 +266,43 @@ export function setupNotificationListeners() {
     const data = response.notification.request.content.data as Record<string, unknown> | undefined;
     if (!data) return;
 
-    if (data.type === 'message' && data.conversation_id && data.conversation_type) {
-      router.push({
-        pathname: '/conversation/[id]',
-        params: {
-          id: String(data.conversation_id),
-          type: data.conversation_type as 'direct' | 'organization',
-        },
-      });
-    } else if (data.type === 'utskick' && data.utskick_id) {
-      router.push({ pathname: '/news', params: { utskick_id: String(data.utskick_id) } } as never);
-    } else if (data.type === 'event' && data.event_id) {
-      router.push({ pathname: '/events', params: { event_id: String(data.event_id) } } as never);
+    switch (data.type) {
+      case 'message':
+        // Direct message, organization message, or listing message
+        if (data.conversation_id && data.conversation_type) {
+          router.navigate({
+            pathname: '/conversation/[id]',
+            params: {
+              id: String(data.conversation_id),
+              type: data.conversation_type as 'direct' | 'organization',
+            },
+          });
+        }
+        break;
+
+      case 'utskick':
+        if (data.utskick_id) {
+          router.push({ pathname: '/information' } as never);
+        }
+        break;
+
+      case 'event':
+        if (data.event_id) {
+          router.push({ pathname: '/events' } as never);
+        }
+        break;
+
+      case 'listing':
+        if (data.listing_id) {
+          router.push({
+            pathname: '/listing/[id]',
+            params: { id: String(data.listing_id) },
+          });
+        }
+        break;
+
+      default:
+        break;
     }
   });
 }

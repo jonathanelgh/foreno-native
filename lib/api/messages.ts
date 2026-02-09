@@ -292,6 +292,39 @@ export async function getOrCreateConversation(
   return created as Conversation;
 }
 
+/** Get or create a 1:1 conversation linked to a marketplace listing. */
+export async function getOrCreateListingConversation(
+  userId: string,
+  otherUserId: string,
+  listingId: string
+): Promise<Conversation> {
+  const id1 = userId < otherUserId ? userId : otherUserId;
+  const id2 = userId < otherUserId ? otherUserId : userId;
+
+  // Check for existing conversation with this listing
+  const { data: existing } = await supabase
+    .from('conversations')
+    .select('*')
+    .eq('participant1_id', id1)
+    .eq('participant2_id', id2)
+    .eq('listing_id', listingId)
+    .maybeSingle();
+
+  if (existing) return existing as Conversation;
+
+  const { data: created, error } = await supabase
+    .from('conversations')
+    .insert({ participant1_id: id1, participant2_id: id2, listing_id: listingId })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating listing conversation:', error);
+    throw error;
+  }
+  return created as Conversation;
+}
+
 export async function getMessages(conversationId: string): Promise<
   (Message & { sender?: { first_name: string | null; last_name: string | null } | null })[]
 > {
