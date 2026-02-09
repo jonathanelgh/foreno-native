@@ -23,6 +23,7 @@ import {
   getOrganizationMemberUserIds,
   getPinnedOrganizationConversations,
 } from '../../lib/api/messages';
+import { supabase } from '../../lib/supabase';
 import type { Conversation, DirectConversation, OrganizationConversation } from '../../types/database';
 
 type ListItem =
@@ -63,6 +64,22 @@ function sortByLastMessage(a: ListItem, b: ListItem): number {
 }
 
 const UNREAD_REFRESH_INTERVAL_MS = 20000;
+
+/** Sort items: pinned org conversations stay at top in original order, rest sorted by last message */
+function sortItemsWithPinned(a: ListItem, b: ListItem): number {
+  const aPinned = a.type === 'organization' &&
+    ((a.conversation as OrganizationConversation).type === 'all_members' ||
+     (a.conversation as OrganizationConversation).type === 'board_admin');
+  const bPinned = b.type === 'organization' &&
+    ((b.conversation as OrganizationConversation).type === 'all_members' ||
+     (b.conversation as OrganizationConversation).type === 'board_admin');
+
+  if (aPinned && !bPinned) return -1;
+  if (!aPinned && bPinned) return 1;
+  if (aPinned && bPinned) return 0; // keep original order for pinned
+
+  return sortByLastMessage(a, b);
+}
 
 export default function MessagesScreen() {
   const { user, activeOrganization, loading: authLoading } = useAuth();
@@ -131,10 +148,13 @@ export default function MessagesScreen() {
     if (!authLoading) load();
   }, [authLoading, load]);
 
+  // Reload conversation list & unread counts when screen gains focus
   useFocusEffect(
     useCallback(() => {
-      if (user?.id && activeOrganization?.id) refreshUnreadCounts();
-    }, [user?.id, activeOrganization?.id, refreshUnreadCounts])
+      if (user?.id && activeOrganization?.id) {
+        load();
+      }
+    }, [user?.id, activeOrganization?.id, load])
   );
 
   useEffect(() => {
@@ -144,6 +164,83 @@ export default function MessagesScreen() {
       if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
     };
   }, [user?.id, refreshUnreadCounts]);
+
+  // Realtime: update conversation list when new messages arrive
+  useEffect(() => {
+    if (!user?.id || !activeOrganization?.id) return;
+
+    const channel = supabase
+      .channel(`msg-list-${activeOrganization.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const row = payload.new as Record<string, unknown>;
+          const convId = row?.conversation_id as string | undefined;
+          const content = (row?.content as string) ?? '';
+          const createdAt = (row?.created_at as string) ?? new Date().toISOString();
+          const imagePath = row?.image_path as string | null | undefined;
+          if (!convId) return;
+
+          const preview = imagePath ? '📷 Bild' : content;
+
+          setItems((prev) => {
+            const updated = prev.map((item) => {
+              if (item.type === 'direct' && item.conversation.id === convId) {
+                return {
+                  ...item,
+                  conversation: {
+                    ...item.conversation,
+                    last_message: preview,
+                    last_message_at: createdAt,
+                  },
+                };
+              }
+              return item;
+            });
+            return updated.sort(sortItemsWithPinned);
+          });
+          refreshUnreadCounts();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'organization_messages' },
+        (payload) => {
+          const row = payload.new as Record<string, unknown>;
+          const convId = row?.organization_conversation_id as string | undefined;
+          const content = (row?.content as string) ?? '';
+          const createdAt = (row?.created_at as string) ?? new Date().toISOString();
+          const imagePath = row?.image_path as string | null | undefined;
+          if (!convId) return;
+
+          const preview = imagePath ? '📷 Bild' : content;
+
+          setItems((prev) => {
+            const updated = prev.map((item) => {
+              if (item.conversation.id === convId) {
+                return {
+                  ...item,
+                  conversation: {
+                    ...item.conversation,
+                    last_message: preview,
+                    last_message_at: createdAt,
+                  },
+                };
+              }
+              return item;
+            });
+            return updated.sort(sortItemsWithPinned);
+          });
+          refreshUnreadCounts();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, activeOrganization?.id, refreshUnreadCounts]);
 
   // ── Split into orgChats vs listingChats ──
   const { orgChats, listingChats } = useMemo(() => {

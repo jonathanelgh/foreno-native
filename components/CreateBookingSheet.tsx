@@ -1,5 +1,4 @@
 import { Feather } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import {
@@ -137,6 +136,233 @@ function formatDuration(minutes: number): string {
 }
 
 // ── Component ──
+
+// ── Custom calendar that greys out unavailable dates ──
+
+const WEEKDAY_LABELS = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
+const MONTH_NAMES = [
+  'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+  'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December',
+];
+
+function BookingCalendar({
+  selectedDate,
+  onSelectDate,
+  availability,
+}: {
+  selectedDate: Date;
+  onSelectDate: (d: Date) => void;
+  availability: BookingProductAvailability[];
+}) {
+  const [viewMonth, setViewMonth] = React.useState(() => {
+    const d = new Date(selectedDate);
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Which ISO weekdays (1=Mon..7=Sun) have active availability?
+  const availableWeekdays = React.useMemo(() => {
+    const set = new Set<number>();
+    for (const w of availability) {
+      if (w.is_active) set.add(w.weekday);
+    }
+    return set;
+  }, [availability]);
+
+  const isDateAvailable = (date: Date): boolean => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    if (d < today) return false;
+    // Max 180 days out
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + 180);
+    if (d > maxDate) return false;
+    const isoWeekday = d.getDay() === 0 ? 7 : d.getDay();
+    return availableWeekdays.has(isoWeekday);
+  };
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  // Build calendar grid
+  const calendarDays = React.useMemo(() => {
+    const year = viewMonth.getFullYear();
+    const month = viewMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    // Monday-based: Mon=0..Sun=6
+    let startOffset = firstDay.getDay() - 1;
+    if (startOffset < 0) startOffset = 6;
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells: (Date | null)[] = [];
+
+    for (let i = 0; i < startOffset; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+    // Pad to full weeks
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    return cells;
+  }, [viewMonth]);
+
+  const goPrevMonth = () => {
+    const prev = new Date(viewMonth);
+    prev.setMonth(prev.getMonth() - 1);
+    // Don't go before current month
+    const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    if (prev >= thisMonth) setViewMonth(prev);
+  };
+
+  const goNextMonth = () => {
+    const next = new Date(viewMonth);
+    next.setMonth(next.getMonth() + 1);
+    const maxMonth = new Date(today);
+    maxMonth.setMonth(maxMonth.getMonth() + 6);
+    if (next <= maxMonth) setViewMonth(next);
+  };
+
+  return (
+    <View style={calStyles.container}>
+      {/* Month header */}
+      <View style={calStyles.monthHeader}>
+        <TouchableOpacity onPress={goPrevMonth} style={calStyles.monthArrow}>
+          <Feather name="chevron-left" size={22} color="#374151" />
+        </TouchableOpacity>
+        <Text style={calStyles.monthTitle}>
+          {MONTH_NAMES[viewMonth.getMonth()]} {viewMonth.getFullYear()}
+        </Text>
+        <TouchableOpacity onPress={goNextMonth} style={calStyles.monthArrow}>
+          <Feather name="chevron-right" size={22} color="#374151" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Weekday labels */}
+      <View style={calStyles.weekdayRow}>
+        {WEEKDAY_LABELS.map((label) => (
+          <Text key={label} style={calStyles.weekdayLabel}>{label}</Text>
+        ))}
+      </View>
+
+      {/* Day grid */}
+      <View style={calStyles.dayGrid}>
+        {calendarDays.map((date, idx) => {
+          if (!date) {
+            return <View key={`empty-${idx}`} style={calStyles.dayCell} />;
+          }
+
+          const available = isDateAvailable(date);
+          const selected = isSameDay(date, selectedDate);
+          const isToday = isSameDay(date, today);
+
+          return (
+            <TouchableOpacity
+              key={date.toISOString()}
+              style={calStyles.dayCell}
+              onPress={() => available && onSelectDate(date)}
+              disabled={!available}
+              activeOpacity={0.6}
+            >
+              <View style={[
+                calStyles.dayInner,
+                selected && calStyles.dayInnerSelected,
+              ]}>
+                <Text
+                  style={[
+                    calStyles.dayText,
+                    selected && calStyles.dayTextSelected,
+                    !available && calStyles.dayTextDisabled,
+                    isToday && !selected && calStyles.dayTextToday,
+                  ]}
+                >
+                  {date.getDate()}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const calStyles = StyleSheet.create({
+  container: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 24,
+  },
+  monthHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  monthArrow: {
+    padding: 6,
+  },
+  monthTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  weekdayRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  weekdayLabel: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9ca3af',
+    paddingVertical: 4,
+  },
+  dayGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  dayCell: {
+    width: '14.28%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dayInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dayInnerSelected: {
+    backgroundColor: '#2563eb',
+  },
+  dayText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  dayTextSelected: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  dayTextDisabled: {
+    color: '#d1d5db',
+  },
+  dayTextToday: {
+    color: '#2563eb',
+    fontWeight: '700',
+  },
+});
+
+// ── Main component ──
 
 interface CreateBookingSheetProps {
   visible: boolean;
@@ -455,10 +681,10 @@ export function CreateBookingSheet({ visible, onClose, onBooked, initialProduct 
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {step === 'product' && 'Boka'}
-            {step === 'duration' && 'Välj längd'}
+            {step === 'duration' && (selectedProduct ? `Välj längd – ${selectedProduct.name}` : 'Välj längd')}
             {step === 'date' && 'Välj datum'}
-            {step === 'time' && 'Välj tid'}
-            {step === 'confirm' && 'Bekräfta'}
+            {step === 'time' && `Lediga tider ${selectedDate.toLocaleDateString('sv-SE')}`}
+            {step === 'confirm' && 'Bekräfta bokning'}
           </Text>
           <View style={styles.headerBtn} />
         </View>
@@ -481,7 +707,6 @@ export function CreateBookingSheet({ visible, onClose, onBooked, initialProduct 
 
           {step === 'duration' && selectedProduct && (
             <View style={styles.stepContainer}>
-              <Text style={styles.stepTitle}>Hur länge vill du boka {selectedProduct.name}?</Text>
               {selectedProduct.durations.map(d => (
                 <TouchableOpacity 
                   key={d.id} 
@@ -498,18 +723,11 @@ export function CreateBookingSheet({ visible, onClose, onBooked, initialProduct 
 
           {step === 'date' && (
             <View style={styles.stepContainer}>
-              <Text style={styles.stepTitle}>Välj datum</Text>
-              <View style={styles.datePickerContainer}>
-                <DateTimePicker
-                  value={selectedDate}
-                  mode="date"
-                  display="inline"
-                  onChange={(e, date) => date && setSelectedDate(date)}
-                  minimumDate={new Date()}
-                  locale="sv-SE"
-                  style={styles.datePicker}
-                />
-              </View>
+              <BookingCalendar
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                availability={selectedProduct?.availability || []}
+              />
               <TouchableOpacity style={styles.primaryBtn} onPress={handleDateConfirm}>
                 <Text style={styles.primaryBtnText}>Fortsätt</Text>
               </TouchableOpacity>
@@ -518,7 +736,6 @@ export function CreateBookingSheet({ visible, onClose, onBooked, initialProduct 
 
           {step === 'time' && (
             <View style={styles.stepContainer}>
-              <Text style={styles.stepTitle}>Lediga tider {selectedDate.toLocaleDateString('sv-SE')}</Text>
               {loadingSlots ? (
                 <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 40 }} />
               ) : (
@@ -551,8 +768,6 @@ export function CreateBookingSheet({ visible, onClose, onBooked, initialProduct 
 
           {step === 'confirm' && selectedProduct && selectedTimeSlot && (
             <View style={styles.stepContainer}>
-              <Text style={styles.stepTitle}>Bekräfta bokning</Text>
-              
               <View style={styles.confirmCard}>
                 <View style={styles.confirmRow}>
                   <Text style={styles.confirmLabel}>Objekt</Text>
@@ -680,13 +895,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  stepTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -703,15 +911,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#1f2937',
     marginLeft: 16,
-  },
-  datePickerContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 24,
-  },
-  datePicker: {
-    width: '100%',
   },
   primaryBtn: {
     backgroundColor: '#2563eb',

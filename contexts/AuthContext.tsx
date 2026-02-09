@@ -1,16 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { makeRedirectUri, startAsync } from 'expo-auth-session';
-import * as QueryParams from 'expo-auth-session/build/QueryParams';
-import * as WebBrowser from 'expo-web-browser';
-import Constants from 'expo-constants';
+import * as Linking from 'expo-linking';
+
 import { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { MembershipWithOrganization, Organization, UserProfile } from '../types/database';
-import { Platform } from 'react-native';
-
-// Complete the auth session for web browser
-WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextType {
   session: Session | null;
@@ -151,36 +145,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const createSessionFromUrl = async (url: string) => {
-    const { params, errorCode } = QueryParams.getQueryParams(url);
-
-    if (errorCode) throw new Error(errorCode);
-    const { access_token, refresh_token } = params;
-
-    if (!access_token) {
-      throw new Error('No access token found in callback URL');
-    }
-
-    const { data, error } = await supabase.auth.setSession({
-      access_token,
-      refresh_token,
-    });
-    
-    if (error) throw error;
-    return data.session;
-  };
-
   const signInWithGoogle = async () => {
     try {
-      const redirectTo = makeRedirectUri({
-        useProxy: Platform.OS !== 'web' && __DEV__,
-        native: 'forenonative://auth',
-      });
+      // Build the edge function redirect URL with our app's deep link info
+      const appUrl = Linking.createURL('auth-callback');
+      console.log('App deep link URL:', appUrl);
+
+      // Parse the app URL to extract scheme and host for the edge function
+      let redirectScheme = 'exp';
+      let redirectHost = '';
+      try {
+        // exp://192.168.1.100:8081/--/auth-callback
+        if (appUrl.startsWith('forenonative://')) {
+          redirectScheme = 'forenonative';
+        } else if (appUrl.startsWith('exp://')) {
+          const afterScheme = appUrl.replace('exp://', '');
+          const hostEnd = afterScheme.indexOf('/');
+          redirectHost = hostEnd >= 0 ? afterScheme.substring(0, hostEnd) : afterScheme;
+        }
+      } catch {}
+
+      // Use the HTTPS edge function as the OAuth redirect target
+      // Supabase will accept this since it's a proper HTTPS URL
+      const edgeFunctionRedirect = `https://krhzxvquzbhhkogxldat.supabase.co/functions/v1/auth-redirect?redirect_scheme=${redirectScheme}&redirect_host=${encodeURIComponent(redirectHost)}`;
+
+      console.log('OAuth redirect URI:', edgeFunctionRedirect);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo,
+          redirectTo: edgeFunctionRedirect,
           skipBrowserRedirect: true,
           queryParams: {
             prompt: 'select_account',
@@ -188,58 +182,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
+      if (!data?.url) throw new Error('Ingen inloggningslänk mottogs från Supabase');
 
-      if (!data?.url) {
-        throw new Error('Ingen inloggningslänk mottogs från Supabase');
-      }
-
-      const authResult = await startAsync({ authUrl: data.url, returnUrl: redirectTo });
-
-      if (authResult.type !== 'success') {
-        if (authResult.type === 'dismiss' || authResult.type === 'cancel') {
-          return;
-        }
-        throw new Error(`OAuth misslyckades med typ: ${authResult.type}`);
-      }
-
-      const responseUrl = authResult.url ?? '';
-      const codeFromParams = authResult.params?.code as string | undefined;
-
-      let urlCode: string | null = null;
-      try {
-        const parsedUrl = new URL(responseUrl);
-        urlCode = parsedUrl.searchParams.get('code');
-        if (!urlCode && parsedUrl.hash) {
-          const hashParams = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
-          urlCode = hashParams.get('code');
-        }
-      } catch (parseError) {
-        console.warn('Kunde inte parsa OAuth-responsens URL:', parseError);
-      }
-
-      const code = codeFromParams || urlCode;
-
-      if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeError) {
-          throw exchangeError;
-        }
-        return;
-      }
-
-      // Fallback: attempt to create session from URL fragments (legacy flow)
-      await createSessionFromUrl(responseUrl);
+      // Open in system browser (Safari).
+      // Flow: Google auth → Supabase callback → Edge function (HTTPS) → App deep link
+      await Linking.openURL(data.url);
     } catch (error: any) {
       console.error('Google sign-in error:', error);
       throw error;
     }
   };
 
+
   const signOut = async () => {
     try {
+      // Clear push token from user profile so they stop receiving notifications
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser) {
+          await supabase
+            .from('user_profiles')
+            .update({ expo_push_token: null })
+            .eq('id', currentUser.id);
+        }
+      } catch (tokenError) {
+        console.error('Error clearing push token:', tokenError);
+        // Continue with sign out even if this fails
+      }
+
       // Clear specific keys instead of all AsyncStorage
       const keys = await AsyncStorage.getAllKeys();
       const supabaseKeys = keys.filter(key => 

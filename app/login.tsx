@@ -1,42 +1,65 @@
 import { router } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  Keyboard,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Linking,
   Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 
-const AnimatedImage = Animated.createAnimatedComponent(Image);
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const HERO_HEIGHT = 300;
 
 export default function LoginScreen() {
-  const scrollY = useRef(new Animated.Value(0)).current;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
 
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
   const handleSignIn = async () => {
-    if (!email || !password) {
-      Alert.alert('Fel', 'Vänligen fyll i både e-post och lösenord');
+    Keyboard.dismiss();
+    if (!email.trim()) {
+      Alert.alert('Fel', 'Vänligen fyll i din e-postadress');
+      emailInputRef.current?.focus();
+      return;
+    }
+    if (!password) {
+      Alert.alert('Fel', 'Vänligen fyll i ditt lösenord');
+      passwordInputRef.current?.focus();
       return;
     }
 
     setLoading(true);
     try {
-      await signIn(email, password);
+      await signIn(email.trim(), password);
       router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Inloggningsfel', error.message || 'Ett fel uppstod vid inloggning');
@@ -46,10 +69,10 @@ export default function LoginScreen() {
   };
 
   const handleGoogleSignIn = async () => {
+    Keyboard.dismiss();
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      // Navigation will happen automatically via auth state change
     } catch (error: any) {
       Alert.alert('Inloggningsfel', error.message || 'Ett fel uppstod vid Google-inloggning');
     } finally {
@@ -57,44 +80,70 @@ export default function LoginScreen() {
     }
   };
 
+  const toggleEmailForm = useCallback(() => {
+    LayoutAnimation.configureNext(
+      LayoutAnimation.create(300, 'easeInEaseOut', 'opacity'),
+    );
+    setShowEmailForm(true);
+  }, []);
+
+  // Fade in email form fields and auto-focus
+  useEffect(() => {
+    if (showEmailForm) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+      }).start();
+      // Small delay to let layout settle before focusing
+      const timer = setTimeout(() => {
+        emailInputRef.current?.focus();
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [showEmailForm, fadeAnim]);
+
+  // Scroll to bottom when keyboard appears so inputs stay visible
+  useEffect(() => {
+    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(event, () => {
+      if (showEmailForm) {
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    });
+    return () => sub.remove();
+  }, [showEmailForm]);
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <Animated.ScrollView
+      <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.scrollContent}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false },
-        )}
-        scrollEventThrottle={16}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={true}
       >
-        <AnimatedImage
-          source={require('../assets/images/hero-1.webp')}
-          style={[
-            styles.heroImage,
-            {
-              transform: [
-                {
-                  translateY: scrollY.interpolate({
-                    inputRange: [-200, 0, 200],
-                    outputRange: [-200, 0, 0],
-                    extrapolateRight: 'clamp',
-                  }),
-                },
-              ],
-              height: scrollY.interpolate({
-                inputRange: [-200, 0, 200],
-                outputRange: [340 + 200, 340, 340],
-                extrapolate: 'clamp',
-              }),
-            },
-          ]}
-          contentFit="cover"
-          contentPosition="top center"
-        />
+        {/* Hero section with gradient overlay */}
+        <View style={styles.heroContainer}>
+          <Image
+            source={require('../assets/images/hero-1.webp')}
+            style={styles.heroImage}
+            contentFit="cover"
+            contentPosition="top center"
+          />
+          <LinearGradient
+            colors={['transparent', 'rgba(255,255,255,0.6)', '#ffffff']}
+            locations={[0, 0.6, 1]}
+            style={styles.heroGradient}
+          />
+        </View>
+
+        {/* Content */}
         <View style={styles.content}>
           <View style={styles.logoContainer}>
             <Image
@@ -103,99 +152,141 @@ export default function LoginScreen() {
               contentFit="contain"
             />
           </View>
+
           <Text style={styles.title}>Välkommen till Föreno</Text>
-          <Text style={styles.subtitle}>Administrera din förening enkelt och säkert</Text>
+          <Text style={styles.subtitle}>
+            Administrera din förening enkelt och säkert
+          </Text>
 
           <View style={styles.form}>
             {/* Google Login Button */}
             <TouchableOpacity
-              style={[styles.socialButton, googleLoading && styles.buttonDisabled]}
+              style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
               onPress={handleGoogleSignIn}
               disabled={googleLoading || loading}
+              activeOpacity={0.7}
             >
               {googleLoading ? (
                 <ActivityIndicator color="#1f2937" />
               ) : (
                 <>
                   <Image
-                    source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                    source={{
+                      uri: 'https://developers.google.com/identity/images/g-logo.png',
+                    }}
                     style={styles.googleLogo}
                     contentFit="contain"
                   />
-                  <Text style={styles.socialButtonText}>Logga in med Google</Text>
+                  <Text style={styles.googleButtonText}>Fortsätt med Google</Text>
                 </>
               )}
             </TouchableOpacity>
 
+            {/* Email toggle button (shown before form is expanded) */}
             {!showEmailForm && (
               <TouchableOpacity
-                style={[styles.socialButton, styles.emailToggleButton, loading && styles.buttonDisabled]}
-                onPress={() => setShowEmailForm(true)}
+                style={styles.emailToggleButton}
+                onPress={toggleEmailForm}
                 disabled={loading || googleLoading}
+                activeOpacity={0.7}
               >
-                <Feather name="mail" size={20} color="#1f2937" style={styles.socialIcon} />
-                <Text style={styles.socialButtonText}>Logga in med e-post</Text>
+                <Feather name="mail" size={18} color="#374151" />
+                <Text style={styles.emailToggleText}>Fortsätt med e-post</Text>
               </TouchableOpacity>
             )}
 
-            {/* Separator */}
+            {/* Email form (animated in) */}
             {showEmailForm && (
-              <>
-                <View style={styles.separator}>
-                  <Text style={styles.separatorText}>eller</Text>
+              <Animated.View style={[styles.emailForm, { opacity: fadeAnim }]}>
+                {/* Divider */}
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>eller med e-post</Text>
+                  <View style={styles.dividerLine} />
                 </View>
 
                 {/* Email Input */}
-                <TextInput
-                  style={styles.input}
-                  placeholder="E-post"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  placeholderTextColor="#9ca3af"
-                />
+                <View style={styles.inputContainer}>
+                  <Feather name="mail" size={18} color="#9ca3af" style={styles.inputIcon} />
+                  <TextInput
+                    ref={emailInputRef}
+                    style={styles.input}
+                    placeholder="E-postadress"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                    placeholderTextColor="#9ca3af"
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordInputRef.current?.focus()}
+                    blurOnSubmit={false}
+                    editable={!loading}
+                  />
+                </View>
 
                 {/* Password Input */}
-                <TextInput
-                  style={styles.input}
-                  placeholder="Lösenord"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  placeholderTextColor="#9ca3af"
-                />
+                <View style={styles.inputContainer}>
+                  <Feather name="lock" size={18} color="#9ca3af" style={styles.inputIcon} />
+                  <TextInput
+                    ref={passwordInputRef}
+                    style={styles.input}
+                    placeholder="Lösenord"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoComplete="password"
+                    textContentType="password"
+                    placeholderTextColor="#9ca3af"
+                    returnKeyType="go"
+                    onSubmitEditing={handleSignIn}
+                    editable={!loading}
+                  />
+                  <Pressable
+                    onPress={() => setShowPassword((p) => !p)}
+                    style={styles.eyeButton}
+                    hitSlop={8}
+                  >
+                    <Feather
+                      name={showPassword ? 'eye-off' : 'eye'}
+                      size={18}
+                      color="#9ca3af"
+                    />
+                  </Pressable>
+                </View>
 
-                {/* Email Login Button */}
+                {/* Sign In Button */}
                 <TouchableOpacity
-                  style={[styles.emailButton, loading && styles.buttonDisabled]}
+                  style={[styles.signInButton, loading && styles.buttonDisabled]}
                   onPress={handleSignIn}
                   disabled={loading || googleLoading}
+                  activeOpacity={0.8}
                 >
                   {loading ? (
                     <ActivityIndicator color="#ffffff" />
                   ) : (
-                    <>
-                      <Feather name="mail" size={20} color="#ffffff" style={styles.emailIcon} />
-                      <Text style={styles.emailButtonText}>Logga in</Text>
-                    </>
+                    <Text style={styles.signInButtonText}>Logga in</Text>
                   )}
                 </TouchableOpacity>
-              </>
+              </Animated.View>
             )}
+          </View>
 
-            {/* Registration Link */}
-            <View style={styles.registerContainer}>
-              <Text style={styles.registerText}>Vill du använda Föreno för din förening? </Text>
-              <TouchableOpacity onPress={() => Linking.openURL('https://www.foreno.se/register')}>
-                <Text style={styles.registerLink}>Kom igång här</Text>
-              </TouchableOpacity>
-            </View>
+          {/* Registration Link */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Vill du använda Föreno för din förening?</Text>
+            <TouchableOpacity
+              onPress={() => Linking.openURL('https://www.foreno.se/register')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.footerLink}>Kom igång här</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </Animated.ScrollView>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -206,119 +297,193 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   scrollContent: {
-    paddingBottom: 40,
+    flexGrow: 1,
+    paddingBottom: 48,
   },
-  content: {
-    paddingTop: Platform.OS === 'ios' ? 40 : 32,
-    paddingHorizontal: 24,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  logo: {
-    width: 64,
-    height: 64,
+
+  // ── Hero ──
+  heroContainer: {
+    height: HERO_HEIGHT,
+    width: '100%',
+    overflow: 'hidden',
   },
   heroImage: {
     width: '100%',
-    height: 340,
+    height: '100%',
+  },
+  heroGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: HERO_HEIGHT * 0.6,
+  },
+
+  // ── Content ──
+  content: {
+    paddingHorizontal: 28,
+    marginTop: -20,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logo: {
+    width: 56,
+    height: 56,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1e293b',
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#111827',
     textAlign: 'center',
+    letterSpacing: -0.3,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#64748b',
+    fontSize: 15,
+    color: '#6b7280',
     textAlign: 'center',
-    marginBottom: 40,
+    lineHeight: 22,
+    marginBottom: 36,
   },
+
+  // ── Form ──
   form: {
-    gap: 16,
+    gap: 12,
   },
-  socialButton: {
+
+  // Google button
+  googleButton: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: 14,
+    paddingVertical: 15,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   googleLogo: {
     width: 20,
     height: 20,
-    marginRight: 12,
+    marginRight: 10,
   },
-  socialButtonText: {
+  googleButtonText: {
     color: '#1f2937',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
   },
+
+  // Email toggle button
   emailToggleButton: {
-    marginTop: 12,
+    borderRadius: 14,
+    paddingVertical: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
   },
-  socialIcon: {
-    marginRight: 12,
+  emailToggleText: {
+    color: '#374151',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 10,
   },
-  separator: {
+
+  // Email form
+  emailForm: {
+    gap: 12,
+    marginTop: 4,
+  },
+
+  // Divider
+  divider: {
+    flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 8,
   },
-  separatorText: {
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  dividerText: {
     color: '#9ca3af',
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '500',
+    paddingHorizontal: 14,
   },
-  input: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    fontSize: 16,
-    color: '#1f2937',
-  },
-  emailButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    paddingVertical: 16,
+
+  // Inputs
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 52,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1f2937',
+    height: '100%',
+  },
+  eyeButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+
+  // Sign in button
+  signInButton: {
+    backgroundColor: '#2563eb',
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 4,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  emailIcon: {
-    marginRight: 8,
-  },
-  emailButtonText: {
+  signInButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '700',
   },
+
   buttonDisabled: {
     opacity: 0.6,
   },
-  registerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+
+  // ── Footer ──
+  footer: {
     alignItems: 'center',
-    marginTop: 24,
-    flexWrap: 'wrap',
+    marginTop: 32,
   },
-  registerText: {
-    color: '#64748b',
+  footerText: {
+    color: '#9ca3af',
     fontSize: 14,
+    marginBottom: 4,
   },
-  registerLink: {
+  footerLink: {
     color: '#2563eb',
     fontSize: 14,
-    fontWeight: '500',
-    textDecorationLine: 'underline',
+    fontWeight: '600',
   },
-}); 
+});

@@ -20,14 +20,32 @@ function RootLayoutNav() {
   useEffect(() => {
     // Handle deep links for OAuth callback
     const createSessionFromUrl = async (url: string) => {
-      console.log('Processing URL for session:', url);
-      
-      // Check if URL contains tokens (could be in hash or query params)
-      if (!url.includes('access_token') && !url.includes('#access_token')) {
-        console.log('URL does not contain access_token');
+      // Skip the initial app URL (no auth params)
+      if (!url.includes('code=') && !url.includes('access_token') && !url.includes('#access_token')) {
         return;
       }
 
+      console.log('Auth callback URL received:', url);
+
+      try {
+        // Try PKCE flow first (code in query params)
+        const urlObj = new URL(url);
+        const code = urlObj.searchParams.get('code');
+        if (code) {
+          console.log('Found auth code, exchanging for session...');
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.error('Error exchanging code for session:', error);
+          } else {
+            console.log('Session established via deep link code exchange');
+          }
+          return;
+        }
+      } catch {
+        // URL parsing failed, try query params approach below
+      }
+
+      // Try implicit flow (access_token in hash or query)
       try {
         const { params, errorCode } = QueryParams.getQueryParams(url);
 
@@ -36,23 +54,18 @@ function RootLayoutNav() {
           return;
         }
         
-        const { access_token, refresh_token } = params;
+        if (params.access_token) {
+          console.log('Setting session from access token in URL');
+          const { error } = await supabase.auth.setSession({
+            access_token: params.access_token,
+            refresh_token: params.refresh_token,
+          });
 
-        if (!access_token) {
-          console.log('No access token found in params');
-          return;
-        }
-
-        console.log('Setting session from URL');
-        const { error } = await supabase.auth.setSession({
-          access_token,
-          refresh_token,
-        });
-
-        if (error) {
-          console.error('Error setting session from URL:', error);
-        } else {
-          console.log('Session set successfully from URL');
+          if (error) {
+            console.error('Error setting session from URL:', error);
+          } else {
+            console.log('Session set successfully from URL');
+          }
         }
       } catch (error) {
         console.error('Error processing URL:', error);
@@ -115,16 +128,18 @@ function RootLayoutNav() {
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="conversation/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="bookings" options={{ headerShown: false }} />
           <Stack.Screen name="fees" options={{ headerShown: false }} />
           <Stack.Screen name="felanmalningar" options={{ headerShown: false }} />
+          <Stack.Screen name="information" />
+          <Stack.Screen name="documents" />
           <Stack.Screen name="contacts" />
           <Stack.Screen name="events" />
           <Stack.Screen name="my-details" />
           <Stack.Screen name="support" />
-          <Stack.Screen name="marketplace" />
           <Stack.Screen name="members" />
           <Stack.Screen name="listing/[id]" />
+          <Stack.Screen name="create-listing" />
+          <Stack.Screen name="my-listings" />
           <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style="auto" />

@@ -1,5 +1,4 @@
 import { Feather } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,20 +11,19 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BookingConfirmationModal, BookingConfirmationData } from '../components/BookingConfirmationModal';
-import { CreateBookingSheet } from '../components/CreateBookingSheet';
-import { ProductImage } from '../components/ProductImage';
-import { useAuth } from '../contexts/AuthContext';
+import { BookingConfirmationModal, BookingConfirmationData } from '../../components/BookingConfirmationModal';
+import { CreateBookingSheet } from '../../components/CreateBookingSheet';
+import { ProductImage } from '../../components/ProductImage';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   BookingWithProduct, 
   BookingProductWithDetails,
   cancelBooking, 
   getUserBookings, 
   getBookingProducts 
-} from '../lib/api/bookings';
+} from '../../lib/api/bookings';
 
 export default function BookingsScreen() {
-  const router = useRouter();
   const { user, activeOrganization } = useAuth();
   const [activeTab, setActiveTab] = useState<'book' | 'my_bookings'>('book');
   const [bookings, setBookings] = useState<BookingWithProduct[]>([]);
@@ -190,20 +188,13 @@ export default function BookingsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
-      
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Feather name="arrow-left" size={20} color="#2563eb" />
-          </TouchableOpacity>
-          <View style={styles.headerTitles}>
-            <Text style={styles.headerTitle}>Bokning</Text>
-            {activeOrganization && (
-              <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
-            )}
-          </View>
+        <View style={styles.headerTitles}>
+          <Text style={styles.headerTitle}>Bokningar</Text>
+          {activeOrganization && (
+            <Text style={styles.headerSubtitle}>{activeOrganization.name}</Text>
+          )}
         </View>
       </View>
 
@@ -318,19 +309,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
   content: {
     flex: 1,
     backgroundColor: '#f8fafc',
     paddingTop: 8,
-  },
-  backButton: {
-    marginRight: 12,
-    padding: 4,
   },
   headerTitles: {
     flex: 1,

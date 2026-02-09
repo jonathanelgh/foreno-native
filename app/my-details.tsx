@@ -16,6 +16,7 @@ import { Stack, useRouter } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Colors } from '../constants/Colors';
 import { Avatar } from '../components/Avatar';
 import { useAuth } from '../contexts/AuthContext';
@@ -66,20 +67,19 @@ export default function MyDetailsScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 1,
     });
 
     if (result.canceled || !result.assets?.[0]) return;
 
-    const asset = result.assets[0];
+    // Compress: resize to 800px and JPEG 0.7
+    const compressed = await ImageManipulator.manipulateAsync(
+      result.assets[0].uri,
+      [{ resize: { width: 800 } }],
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+    );
 
-    // Check file size (max 2MB)
-    if (asset.fileSize && asset.fileSize > 2 * 1024 * 1024) {
-      Alert.alert('För stor fil', 'Bilden får vara max 2 MB.');
-      return;
-    }
-
-    await uploadImage(asset.uri);
+    await uploadImage(compressed.uri);
   };
 
   const handleTakePhoto = async () => {
@@ -92,12 +92,18 @@ export default function MyDetailsScreen() {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 1,
     });
 
     if (result.canceled || !result.assets?.[0]) return;
 
-    await uploadImage(result.assets[0].uri);
+    const compressed = await ImageManipulator.manipulateAsync(
+      result.assets[0].uri,
+      [{ resize: { width: 800 } }],
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+    );
+
+    await uploadImage(compressed.uri);
   };
 
   const showImageOptions = () => {

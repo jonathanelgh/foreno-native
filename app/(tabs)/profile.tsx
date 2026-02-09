@@ -180,6 +180,26 @@ export default function ProfileScreen() {
         <View style={styles.menuGrid}>
           <TouchableOpacity 
             style={styles.menuItem}
+            onPress={() => router.push('/information')}
+          >
+            <View style={styles.menuItemContainer}>
+              <Feather name="info" size={22} color="#2563eb" />
+              <Text style={styles.menuItemText}>Information</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/documents')}
+          >
+            <View style={styles.menuItemContainer}>
+              <Feather name="folder" size={22} color="#2563eb" />
+              <Text style={styles.menuItemText}>Dokument</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
             onPress={() => router.push('/contacts')}
           >
             <View style={styles.menuItemContainer}>
@@ -204,33 +224,7 @@ export default function ProfileScreen() {
           >
             <View style={styles.menuItemContainer}>
               <Feather name="calendar" size={22} color="#2563eb" />
-              <View style={styles.menuItemTextContainer}>
-                <Text style={styles.menuItemText}>Kalender</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => router.push('/bookings')}
-          >
-            <View style={styles.menuItemContainer}>
-              <Feather name="calendar" size={22} color="#2563eb" />
-              <View style={styles.menuItemTextContainer}>
-                <Text style={styles.menuItemText}>Bokning</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => router.push('/marketplace')}
-          >
-            <View style={styles.menuItemContainer}>
-              <Feather name="shopping-bag" size={22} color="#2563eb" />
-              <View style={styles.menuItemTextContainer}>
-                <Text style={styles.menuItemText}>Köp & sälj</Text>
-              </View>
+              <Text style={styles.menuItemText}>Kalender</Text>
             </View>
           </TouchableOpacity>
 
@@ -250,9 +244,7 @@ export default function ProfileScreen() {
           >
             <View style={styles.menuItemContainer}>
               <Feather name="alert-triangle" size={22} color="#2563eb" />
-              <View style={styles.menuItemTextContainer}>
-                <Text style={styles.menuItemText}>Felanmälan</Text>
-              </View>
+              <Text style={styles.menuItemText}>Felanmälan</Text>
             </View>
           </TouchableOpacity>
         </View>

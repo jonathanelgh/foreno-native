@@ -8,6 +8,7 @@ import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useUnreadCountOptional } from '@/contexts/UnreadCountContext';
+import { Store } from 'lucide-react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -15,7 +16,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      initialRouteName="news"
+      initialRouteName="index"
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
@@ -23,7 +24,6 @@ export default function TabLayout() {
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
           ios: {
-            // Use a transparent background on iOS to show the blur effect
             position: 'absolute',
           },
           default: {},
@@ -37,10 +37,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="news"
+        name="bookings"
         options={{
-          title: 'Information',
-          tabBarIcon: ({ color }) => <IconSymbol size={22} name="newspaper.fill" color={color} />,
+          title: 'Bokningar',
+          tabBarIcon: ({ color }) => <IconSymbol size={22} name="calendar" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -52,16 +52,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="documents"
+        name="marketplace"
         options={{
-          title: 'Dokument',
-          tabBarIcon: ({ color }) => <IconSymbol size={22} name="folder.fill" color={color} />,
+          title: 'Köp & Sälj',
+          tabBarIcon: ({ color }) => <Store size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profil',
+          title: 'Mitt Föreno',
           tabBarIcon: ({ color }) => <IconSymbol size={22} name="person.fill" color={color} />,
         }}
       />

@@ -65,6 +65,14 @@ export default function ConversationScreen() {
 
   const isDirect = type === 'direct';
 
+  // Always navigate back to the messages list, regardless of how user arrived
+  const goToMessages = () => {
+    if (router.canDismiss()) {
+      router.dismissAll();
+    }
+    router.replace('/(tabs)/messages');
+  };
+
   const loadHeader = useCallback(async () => {
     if (!id || !user?.id) return;
     try {
@@ -334,7 +342,7 @@ export default function ConversationScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={goToMessages} style={styles.backBtn}>
             <Feather name="arrow-left" size={22} color="#1f2937" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Konversation</Text>
@@ -346,7 +354,7 @@ export default function ConversationScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={goToMessages} style={styles.backBtn}>
           <Feather name="chevron-left" size={28} color="#1f2937" />
         </TouchableOpacity>
         {isDirect ? (
@@ -395,7 +403,7 @@ export default function ConversationScreen() {
           createdBy={orgConversationCreatedBy}
           chatName={headerTitle}
           onChatNameUpdated={setHeaderTitle}
-          onLeave={() => router.back()}
+          onLeave={goToMessages}
         />
       )}
 

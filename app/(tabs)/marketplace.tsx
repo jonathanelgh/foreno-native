@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
-import { Colors } from '../constants/Colors';
-import { IconSymbol } from '../components/ui/IconSymbol';
-import { MarketplaceItemCard } from '../components/MarketplaceItemCard';
-import { MarketplaceFilterModal } from '../components/MarketplaceFilterModal';
-import { getMarketplaceItems, getUserMarketplaceItems, getMarketplaceCategories } from '../lib/api/marketplace';
-import { MarketplaceItem, MarketplaceFilters, MarketplaceCategory } from '../types/marketplace';
-import { useAuth } from '../contexts/AuthContext';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Colors } from '../../constants/Colors';
+import { IconSymbol } from '../../components/ui/IconSymbol';
+import { MarketplaceItemCard } from '../../components/MarketplaceItemCard';
+import { MarketplaceFilterModal } from '../../components/MarketplaceFilterModal';
+import { getMarketplaceItems, getMarketplaceCategories } from '../../lib/api/marketplace';
+import { MarketplaceItem, MarketplaceFilters, MarketplaceCategory } from '../../types/marketplace';
+import { useAuth } from '../../contexts/AuthContext';
 
 import { Car, Home, Armchair, Smartphone, Bike, Shirt, Box, Tag, SlidersHorizontal, ChevronLeft, Plus } from 'lucide-react-native';
 
@@ -26,7 +26,6 @@ const ICON_MAP: Record<string, any> = {
 export default function MarketplaceScreen() {
   const router = useRouter();
   const { session, activeOrganization } = useAuth();
-  const [activeTab, setActiveTab] = useState<'all' | 'my'>('all');
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +46,7 @@ export default function MarketplaceScreen() {
 
   useEffect(() => {
     fetchItems();
-  }, [activeTab, filters, selectedCategory, selectedSubCategory, activeOrganization]);
+  }, [filters, selectedCategory, selectedSubCategory, activeOrganization]);
 
   const fetchCategories = async () => {
     const data = await getMarketplaceCategories();
@@ -71,13 +70,7 @@ export default function MarketplaceScreen() {
         currentFilters.category_ids = [selectedCategory, ...childIds];
       }
 
-      let data;
-      if (activeTab === 'all') {
-        data = await getMarketplaceItems(activeOrganization.id, currentFilters);
-      } else {
-        data = await getUserMarketplaceItems(activeOrganization.id, session?.user?.id || '');
-      }
-      
+      const data = await getMarketplaceItems(activeOrganization.id, currentFilters);
       setItems(data);
     } catch (error) {
       console.error('Error fetching marketplace items:', error);
@@ -102,31 +95,15 @@ export default function MarketplaceScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen 
-        options={{ 
-          headerShown: true,
-          title: 'Köp & Sälj',
-          headerLeft: () => (
-            <TouchableOpacity 
-              onPress={() => router.back()} 
-              style={{ 
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                marginLeft: -8,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Feather name="chevron-left" size={28} color={Colors.light.tint} />
-            </TouchableOpacity>
-          ),
-          headerRight: () => (
-            <TouchableOpacity onPress={() => setFilterModalVisible(true)} style={{ padding: 8 }}>
-               <SlidersHorizontal size={24} color={Colors.light.tint} />
-            </TouchableOpacity>
-          ),
-        }} 
-      />
+      {/* Header */}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
+        <View style={styles.headerBar}>
+          <Text style={styles.headerBarTitle}>Köp & Sälj</Text>
+          <TouchableOpacity onPress={() => setFilterModalVisible(true)} style={{ padding: 8 }}>
+            <SlidersHorizontal size={24} color={Colors.light.tint} />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
       
       {/* Categories Horizontal Scroll */}
       <View style={styles.categoriesContainer}>
@@ -276,7 +253,7 @@ export default function MarketplaceScreen() {
       <View style={styles.bottomBar}>
         <TouchableOpacity 
           style={styles.createButton}
-          onPress={() => console.log('Create listing')}
+          onPress={() => router.push('/create-listing')}
           activeOpacity={0.9}
         >
           <Plus size={20} color="#fff" />
@@ -284,13 +261,11 @@ export default function MarketplaceScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={[styles.myAdsButton, activeTab === 'my' && styles.myAdsButtonActive]}
-          onPress={() => setActiveTab(activeTab === 'my' ? 'all' : 'my')}
+          style={styles.myAdsButton}
+          onPress={() => router.push('/my-listings')}
           activeOpacity={0.7}
         >
-          <Text style={[styles.myAdsButtonText, activeTab === 'my' && styles.myAdsButtonTextActive]}>
-            {activeTab === 'my' ? 'Alla annonser' : 'Mina annonser'}
-          </Text>
+          <Text style={styles.myAdsButtonText}>Mina annonser</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -302,9 +277,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9fafb',
   },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  headerBarTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+  },
   bottomBar: {
     position: 'absolute',
-    bottom: 24, // Floating position
+    bottom: 100, // Floating above tab bar
     left: 20,
     right: 20,
     backgroundColor: '#fff',
@@ -343,16 +333,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#f3f4f6',
   },
-  myAdsButtonActive: {
-    backgroundColor: '#e5e7eb',
-  },
   myAdsButtonText: {
     color: '#374151',
     fontSize: 15,
     fontWeight: '600',
-  },
-  myAdsButtonTextActive: {
-    color: '#111827',
   },
   categoriesContainer: {
     backgroundColor: '#fff',
@@ -443,6 +427,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     paddingTop: 0,
+    paddingBottom: 160,
   },
   loadingContainer: {
     flex: 1,
