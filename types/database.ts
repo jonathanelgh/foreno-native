@@ -967,10 +967,16 @@ export type Conversation = {
   id: string
   participant1_id: string
   participant2_id: string
+  listing_id: string | null
   last_message: string | null
   last_message_at: string | null
   created_at: string | null
   updated_at: string | null
+}
+
+/** A direct conversation that is linked to a marketplace listing. */
+export type DirectConversation = Conversation & {
+  listing_id: string
 }
 
 export type Message = {
