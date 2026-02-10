@@ -24,6 +24,7 @@ import { getListingById, ListingDetail } from '../../lib/api/marketplace';
 import { getOrCreateListingConversation } from '../../lib/api/messages';
 import { Avatar } from '../../components/Avatar';
 import { IconSymbol } from '../../components/ui/IconSymbol';
+import { ReportListingModal } from '../../components/ReportListingModal';
 
 /* ── Skeleton shimmer block ── */
 function SkeletonBlock({ width, height, borderRadius = 6, style }: {
@@ -122,12 +123,13 @@ const THUMBNAIL_SIZE = 72;
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
 
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
 
   const imageListRef = useRef<FlatList>(null);
 
@@ -451,6 +453,21 @@ export default function ListingDetailScreen() {
               })}
             </Text>
           </View>
+
+          {/* Report button */}
+          {!isOwnListing && (
+            <>
+              <View style={styles.divider} />
+              <TouchableOpacity
+                style={styles.reportRow}
+                onPress={() => setReportModalVisible(true)}
+                activeOpacity={0.6}
+              >
+                <Feather name="flag" size={16} color="#9ca3af" />
+                <Text style={styles.reportText}>Rapportera annons</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </ScrollView>
 
@@ -473,6 +490,20 @@ export default function ListingDetailScreen() {
             )}
           </TouchableOpacity>
         </View>
+      )}
+
+      {/* Report modal */}
+      {listing && (
+        <ReportListingModal
+          visible={reportModalVisible}
+          onClose={() => setReportModalVisible(false)}
+          listing={listing}
+          reporterId={user?.id || ''}
+          reporterName={
+            [userProfile?.first_name, userProfile?.last_name].filter(Boolean).join(' ') || 'Okänd'
+          }
+          reporterEmail={user?.email}
+        />
       )}
     </View>
   );
@@ -660,6 +691,21 @@ const styles = StyleSheet.create({
   },
   detailLink: {
     color: Colors.light.tint,
+    fontWeight: '500',
+  },
+
+  /* Report */
+  reportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  reportText: {
+    fontSize: 14,
+    color: '#9ca3af',
     fontWeight: '500',
   },
 

@@ -59,11 +59,10 @@ export const getMarketplaceItems = async (organizationId: string, filters?: Mark
     .order('created_at', { ascending: false });
 
   if (filters) {
-    if (filters.category_id) {
-      query = query.eq('category_id', filters.category_id);
-    }
     if (filters.category_ids && filters.category_ids.length > 0) {
       query = query.in('category_id', filters.category_ids);
+    } else if (filters.category_id) {
+      query = query.eq('category_id', filters.category_id);
     }
     if (filters.transaction_type) {
       query = query.eq('transaction_type', filters.transaction_type);

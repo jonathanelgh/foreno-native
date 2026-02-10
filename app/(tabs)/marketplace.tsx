@@ -31,7 +31,7 @@ export default function MarketplaceScreen() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [filters, setFilters] = useState<MarketplaceFilters>({});
+  const [filters, setFilters] = useState<MarketplaceFilters>({ transaction_type: 'sell' });
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
 
@@ -83,6 +83,40 @@ export default function MarketplaceScreen() {
     item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const handleApplyFilters = (newFilters: MarketplaceFilters) => {
+    // Extract category info from modal and sync with top bar
+    const { category_id, category_ids, ...nonCategoryFilters } = newFilters;
+
+    if (category_id) {
+      const cat = categories.find(c => c.id === category_id);
+      if (cat) {
+        if (cat.parent_id) {
+          // Walk up to find the root ancestor for the top bar
+          let root = cat;
+          let directChild = cat;
+          while (root.parent_id) {
+            const parent = categories.find(c => c.id === root.parent_id);
+            if (!parent) break;
+            directChild = root;
+            root = parent;
+          }
+          setSelectedCategory(root.id);
+          // Only set sub-category if it's a direct child of the root
+          setSelectedSubCategory(directChild.id !== root.id ? directChild.id : null);
+        } else {
+          setSelectedCategory(cat.id);
+          setSelectedSubCategory(null);
+        }
+      }
+    } else {
+      setSelectedCategory(null);
+      setSelectedSubCategory(null);
+    }
+
+    // Store only non-category filters (category is derived from selectedCategory/selectedSubCategory in fetchItems)
+    setFilters(nonCategoryFilters);
+  };
 
   const handleItemPress = (item: MarketplaceItem) => {
     router.push({ pathname: `/listing/${item.id}` });
@@ -245,8 +279,11 @@ export default function MarketplaceScreen() {
       <MarketplaceFilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
-        onApply={(newFilters) => setFilters(newFilters)}
-        initialFilters={filters}
+        onApply={handleApplyFilters}
+        initialFilters={{
+          ...filters,
+          category_id: selectedSubCategory || selectedCategory || undefined,
+        }}
       />
 
       {/* Bottom Action Bar */}

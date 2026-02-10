@@ -4,7 +4,7 @@ import { Colors } from '../constants/Colors';
 import { IconSymbol } from './ui/IconSymbol';
 import { MarketplaceFilters, MarketplaceCategory } from '../types/marketplace';
 import { getMarketplaceCategories, getCounties, getMunicipalities } from '../lib/api/marketplace';
-import { ChevronRight, ChevronLeft, Check } from 'lucide-react-native';
+import { ChevronRight, ChevronLeft, Check, X } from 'lucide-react-native';
 
 interface MarketplaceFilterModalProps {
   visible: boolean;
@@ -219,9 +219,10 @@ export const MarketplaceFilterModal: React.FC<MarketplaceFilterModalProps> = ({
   const renderFilterView = () => (
     <>
       <View style={styles.header}>
+        <View style={{ width: 32 }} />
         <Text style={styles.headerTitle}>Filtrera</Text>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <IconSymbol name="xmark" size={24} color="#111827" />
+          <X size={24} color="#111827" />
         </TouchableOpacity>
       </View>
 
