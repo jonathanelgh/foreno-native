@@ -10,6 +10,8 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useUnreadCountOptional } from '@/contexts/UnreadCountContext';
 import { Store } from 'lucide-react-native';
 
+const isIPad = Platform.OS === 'ios' && (Platform as { isPad?: boolean }).isPad === true;
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { totalUnread } = useUnreadCountOptional();
@@ -24,7 +26,10 @@ export default function TabLayout() {
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
           ios: {
-            position: 'absolute',
+            // Absolute positioning enables blur see-through on iPhone but
+            // causes the tab bar to be untouchable on iPad (no home-indicator
+            // safe area → content extends behind the bar and intercepts touches).
+            ...(isIPad ? {} : { position: 'absolute' as const }),
           },
           default: {},
         }),

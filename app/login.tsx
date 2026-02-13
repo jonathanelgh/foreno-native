@@ -1,12 +1,10 @@
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Animated,
   Keyboard,
   KeyboardAvoidingView,
-  LayoutAnimation,
   Linking,
   Platform,
   Pressable,
@@ -15,7 +13,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  UIManager,
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -23,26 +20,18 @@ import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
 const HERO_HEIGHT = 300;
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [showEmailForm, setShowEmailForm] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn } = useAuth();
 
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const handleSignIn = async () => {
     Keyboard.dismiss();
@@ -68,53 +57,16 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    Keyboard.dismiss();
-    setGoogleLoading(true);
-    try {
-      await signInWithGoogle();
-    } catch (error: any) {
-      Alert.alert('Inloggningsfel', error.message || 'Ett fel uppstod vid Google-inloggning');
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  const toggleEmailForm = useCallback(() => {
-    LayoutAnimation.configureNext(
-      LayoutAnimation.create(300, 'easeInEaseOut', 'opacity'),
-    );
-    setShowEmailForm(true);
-  }, []);
-
-  // Fade in email form fields and auto-focus
-  useEffect(() => {
-    if (showEmailForm) {
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 350,
-        useNativeDriver: true,
-      }).start();
-      // Small delay to let layout settle before focusing
-      const timer = setTimeout(() => {
-        emailInputRef.current?.focus();
-      }, 400);
-      return () => clearTimeout(timer);
-    }
-  }, [showEmailForm, fadeAnim]);
-
   // Scroll to bottom when keyboard appears so inputs stay visible
   useEffect(() => {
     const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const sub = Keyboard.addListener(event, () => {
-      if (showEmailForm) {
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      }
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     });
     return () => sub.remove();
-  }, [showEmailForm]);
+  }, []);
 
   return (
     <KeyboardAvoidingView
@@ -159,120 +111,72 @@ export default function LoginScreen() {
           </Text>
 
           <View style={styles.form}>
-            {/* Google Login Button */}
+            {/* Email Input */}
+            <View style={styles.inputContainer}>
+              <Feather name="mail" size={18} color="#9ca3af" style={styles.inputIcon} />
+              <TextInput
+                ref={emailInputRef}
+                style={styles.input}
+                placeholder="E-postadress"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
+                placeholderTextColor="#9ca3af"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordInputRef.current?.focus()}
+                blurOnSubmit={false}
+                editable={!loading}
+              />
+            </View>
+
+            {/* Password Input */}
+            <View style={styles.inputContainer}>
+              <Feather name="lock" size={18} color="#9ca3af" style={styles.inputIcon} />
+              <TextInput
+                ref={passwordInputRef}
+                style={styles.input}
+                placeholder="Lösenord"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoComplete="password"
+                textContentType="password"
+                placeholderTextColor="#9ca3af"
+                returnKeyType="go"
+                onSubmitEditing={handleSignIn}
+                editable={!loading}
+              />
+              <Pressable
+                onPress={() => setShowPassword((p) => !p)}
+                style={styles.eyeButton}
+                hitSlop={8}
+              >
+                <Feather
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={18}
+                  color="#9ca3af"
+                />
+              </Pressable>
+            </View>
+
+            {/* Sign In Button */}
             <TouchableOpacity
-              style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
-              onPress={handleGoogleSignIn}
-              disabled={googleLoading || loading}
-              activeOpacity={0.7}
+              style={[styles.signInButton, loading && styles.buttonDisabled]}
+              onPress={handleSignIn}
+              disabled={loading}
+              activeOpacity={0.8}
             >
-              {googleLoading ? (
-                <ActivityIndicator color="#1f2937" />
+              {loading ? (
+                <ActivityIndicator color="#ffffff" />
               ) : (
-                <>
-                  <Image
-                    source={{
-                      uri: 'https://developers.google.com/identity/images/g-logo.png',
-                    }}
-                    style={styles.googleLogo}
-                    contentFit="contain"
-                  />
-                  <Text style={styles.googleButtonText}>Fortsätt med Google</Text>
-                </>
+                <Text style={styles.signInButtonText}>Logga in</Text>
               )}
             </TouchableOpacity>
-
-            {/* Email toggle button (shown before form is expanded) */}
-            {!showEmailForm && (
-              <TouchableOpacity
-                style={styles.emailToggleButton}
-                onPress={toggleEmailForm}
-                disabled={loading || googleLoading}
-                activeOpacity={0.7}
-              >
-                <Feather name="mail" size={18} color="#374151" />
-                <Text style={styles.emailToggleText}>Fortsätt med e-post</Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Email form (animated in) */}
-            {showEmailForm && (
-              <Animated.View style={[styles.emailForm, { opacity: fadeAnim }]}>
-                {/* Divider */}
-                <View style={styles.divider}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>eller med e-post</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
-                {/* Email Input */}
-                <View style={styles.inputContainer}>
-                  <Feather name="mail" size={18} color="#9ca3af" style={styles.inputIcon} />
-                  <TextInput
-                    ref={emailInputRef}
-                    style={styles.input}
-                    placeholder="E-postadress"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="email"
-                    textContentType="emailAddress"
-                    placeholderTextColor="#9ca3af"
-                    returnKeyType="next"
-                    onSubmitEditing={() => passwordInputRef.current?.focus()}
-                    blurOnSubmit={false}
-                    editable={!loading}
-                  />
-                </View>
-
-                {/* Password Input */}
-                <View style={styles.inputContainer}>
-                  <Feather name="lock" size={18} color="#9ca3af" style={styles.inputIcon} />
-                  <TextInput
-                    ref={passwordInputRef}
-                    style={styles.input}
-                    placeholder="Lösenord"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoComplete="password"
-                    textContentType="password"
-                    placeholderTextColor="#9ca3af"
-                    returnKeyType="go"
-                    onSubmitEditing={handleSignIn}
-                    editable={!loading}
-                  />
-                  <Pressable
-                    onPress={() => setShowPassword((p) => !p)}
-                    style={styles.eyeButton}
-                    hitSlop={8}
-                  >
-                    <Feather
-                      name={showPassword ? 'eye-off' : 'eye'}
-                      size={18}
-                      color="#9ca3af"
-                    />
-                  </Pressable>
-                </View>
-
-                {/* Sign In Button */}
-                <TouchableOpacity
-                  style={[styles.signInButton, loading && styles.buttonDisabled]}
-                  onPress={handleSignIn}
-                  disabled={loading || googleLoading}
-                  activeOpacity={0.8}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.signInButtonText}>Logga in</Text>
-                  )}
-                </TouchableOpacity>
-              </Animated.View>
-            )}
           </View>
 
           {/* Registration Link */}
@@ -351,75 +255,6 @@ const styles = StyleSheet.create({
   // ── Form ──
   form: {
     gap: 12,
-  },
-
-  // Google button
-  googleButton: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    paddingVertical: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#e5e7eb',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  googleLogo: {
-    width: 20,
-    height: 20,
-    marginRight: 10,
-  },
-  googleButtonText: {
-    color: '#1f2937',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-
-  // Email toggle button
-  emailToggleButton: {
-    borderRadius: 14,
-    paddingVertical: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f9fafb',
-    borderWidth: 1.5,
-    borderColor: '#e5e7eb',
-  },
-  emailToggleText: {
-    color: '#374151',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 10,
-  },
-
-  // Email form
-  emailForm: {
-    gap: 12,
-    marginTop: 4,
-  },
-
-  // Divider
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e5e7eb',
-  },
-  dividerText: {
-    color: '#9ca3af',
-    fontSize: 13,
-    fontWeight: '500',
-    paddingHorizontal: 14,
   },
 
   // Inputs

@@ -605,6 +605,8 @@ export function CreateBookingSheet({ visible, onClose, onBooked, initialProduct 
         user.id
       );
 
+      // Booking confirmation email is sent automatically via database trigger
+
       // Close the sheet and pass confirmation data to parent
       const bookingData: BookingConfirmationData = {
         productName: selectedProduct.name || 'Bokning',

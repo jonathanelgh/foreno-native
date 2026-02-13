@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,8 @@ import { MarketplaceItem, MarketplaceFilters, MarketplaceCategory } from '../../
 import { useAuth } from '../../contexts/AuthContext';
 
 import { Car, Home, Armchair, Smartphone, Bike, Shirt, Box, Tag, SlidersHorizontal, ChevronLeft, Plus } from 'lucide-react-native';
+
+const isIPad = Platform.OS === 'ios' && (Platform as { isPad?: boolean }).isPad === true;
 
 const ICON_MAP: Record<string, any> = {
   Car,
@@ -331,7 +333,9 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     position: 'absolute',
-    bottom: 100, // Floating above tab bar
+    // On iPhone the tab bar is absolutely positioned, so we need more space.
+    // On iPad the tab bar is in the normal layout flow, so less offset is needed.
+    bottom: isIPad ? 20 : 100,
     left: 20,
     right: 20,
     backgroundColor: '#fff',
@@ -464,7 +468,9 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     paddingTop: 0,
-    paddingBottom: 160,
+    // On iPhone we need extra padding for the absolute tab bar + floating bottom bar.
+    // On iPad the tab bar is in normal flow, so less padding is needed.
+    paddingBottom: isIPad ? 100 : 160,
   },
   loadingContainer: {
     flex: 1,
